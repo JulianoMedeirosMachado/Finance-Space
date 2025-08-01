@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import Dashboard from '../views/DashboardView.vue';
+import CardsView from "@/views/CardsView.vue";
 
 const routes = [
     {
@@ -9,7 +10,13 @@ const routes = [
     { 
         path: '/dashboard', 
         component: Dashboard
+    },
+    {
+        path: '/cards',
+        component: CardsView
     }
+
+
 ];
 
 const router = createRouter({
