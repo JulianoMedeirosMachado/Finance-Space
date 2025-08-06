@@ -8,20 +8,31 @@
           <router-link to="/cards"><p>Cartões</p></router-link>
           <router-link to="/bank"><p>Contas de Banco</p></router-link>
         </div>
-        <div>
-            <img class="mode-switch" src="../assets/dia-e-noite.png">
+        <div class="mode-switch-div">
+            <img @click="toggleDark();" class="mode-switch" src="../assets/dia-e-noite.png">
         </div>
     </div>
 </template>
 
 <style scoped>
-.logo-nav {
+.dark .logo-nav {
     width: 20%;
 }
 
-.nav-bar {
+.light .logo-nav {
+    width: 20%;
+    filter: brightness(0) invert(0);
+}
+
+.dark .nav-bar {
     display: flex;
     border-bottom: 1px solid whitesmoke;
+    justify-content: flex-start;
+}
+
+.light .nav-bar {
+    display: flex;
+    border-bottom: 1px solid gray;
     justify-content: flex-start;
 }
 
@@ -43,18 +54,37 @@
     transition: color 0.3s ease;
 }
 
+.mode-switch-div {
+    display: flex;
+    align-items: center;
+    justify-content: right;
+}
+
 .mode-switch {
-  width: 15%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: auto;
-  margin-top: 4%;
-  filter: brightness(0) invert(1);
+    width: 15%;
+    margin-top: 0.5%;
+    margin-right: 15px;
+    cursor: pointer;
+}
+
+.dark .mode-switch {
+    filter: brightness(0) invert(1);
+}
+
+
+.light .mode-switch {
+    filter: brightness(0) invert(0);
 }
 </style>
-<script setup lang="ts">
+<script setup>
+    import { useDark, useToggle } from '@vueuse/core';
+    import { watch } from 'vue';
 
+    const isDark = useDark({ disableTransition: false });
+    const toggleDark = useToggle(isDark);
 
-
+    watch(isDark, (value) => {
+        document.body.classList.toggle('dark', value);
+        document.body.classList.toggle('light', !value);
+    });
 </script>
