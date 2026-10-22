@@ -1,0 +1,6 @@
+node_modules
+**/dist
+backend/data
+backups
+package-lock.json
+AGENTS.md

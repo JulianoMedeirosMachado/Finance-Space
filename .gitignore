@@ -26,3 +26,8 @@ pnpm-debug.log*
 /vendor/
 *.log
 .env
+**/dist/
+backend/data/
+backups/
+coverage/
+playwright-report/
