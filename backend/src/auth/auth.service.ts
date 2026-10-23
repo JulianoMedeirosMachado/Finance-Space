@@ -14,6 +14,7 @@ import {
 } from 'node:crypto';
 import { promisify } from 'node:util';
 import nodemailer from 'nodemailer';
+import { z } from 'zod';
 import { DatabaseService } from '../database/database.service';
 
 const scrypt = promisify(scryptCallback);
@@ -106,15 +107,21 @@ export class AuthService {
           host: process.env.SMTP_HOST,
           port: Number(process.env.SMTP_PORT || 587),
           secure: process.env.SMTP_PORT === '465',
+          requireTLS: process.env.NODE_ENV === 'production',
+          disableFileAccess: true,
+          disableUrlAccess: true,
           auth: process.env.SMTP_USER
             ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD }
             : undefined,
         });
+        const origin = z.url().parse(process.env.APP_ORIGIN?.split(',')[0].trim());
+        const resetUrl = new URL('/reset-password', origin);
+        resetUrl.searchParams.set('token', token);
         await transport.sendMail({
           from: process.env.SMTP_FROM,
           to: email,
           subject: 'Recuperação de senha — Finance Space',
-          text: `Defina uma nova senha em ${process.env.APP_ORIGIN}/reset-password?token=${token}\nO link expira em 30 minutos.`,
+          text: `Defina uma nova senha em ${resetUrl.toString()}\nO link expira em 30 minutos.`,
         });
       }
     } else {

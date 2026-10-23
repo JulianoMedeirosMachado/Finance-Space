@@ -9,10 +9,12 @@
     "dev": "concurrently -k -n api,web \"npm run dev -w backend\" \"npm run dev -w frontend\"",
     "build": "npm run build -w backend && npm run build -w frontend",
     "test": "npm run test -w backend",
+    "test:privacy": "node frontend/scripts/check-privacy.mjs",
+    "audit:security": "node scripts/security-audit.mjs",
     "typecheck": "npm run typecheck -w frontend && npm run build -w backend",
     "start": "npm run start -w backend",
-    "format": "prettier --write backend/src backend/test frontend/src frontend/*.json frontend/*.ts frontend/index.html package.json README.md docs .prettierrc.json",
-    "format:check": "prettier --check backend/src backend/test frontend/src frontend/*.json frontend/*.ts frontend/index.html package.json README.md docs .prettierrc.json"
+    "format": "prettier --write backend/src backend/test frontend/src frontend/scripts scripts frontend/*.json frontend/*.ts frontend/index.html package.json README.md docs .prettierrc.json",
+    "format:check": "prettier --check backend/src backend/test frontend/src frontend/scripts scripts frontend/*.json frontend/*.ts frontend/index.html package.json README.md docs .prettierrc.json"
   },
   "devDependencies": {
     "concurrently": "^9.2.0",

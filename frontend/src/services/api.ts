@@ -13,6 +13,8 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     ...options,
     credentials: 'include',
     headers: { ...(formData ? {} : { 'Content-Type': 'application/json' }), ...options.headers },
+  }).catch(() => {
+    throw new ApiError('Não foi possível conectar ao servidor. Verifique sua conexão.', 0);
   });
   const body = await response
     .json()

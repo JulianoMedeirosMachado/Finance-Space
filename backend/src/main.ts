@@ -31,6 +31,10 @@ async function bootstrap() {
     )
     .parse({ production: process.env.NODE_ENV === 'production', origins });
   app.use(helmet());
+  app.use('/api', (_request: Request, response: Response, next: NextFunction) => {
+    response.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   app.use(
     '/api',
     rateLimit({

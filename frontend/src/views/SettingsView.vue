@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Tags, Users, History, Download, Upload, ShieldCheck, ChevronRight } from 'lucide-vue-next';
+import { Tags, Users, History, Download, ShieldCheck, ChevronRight } from 'lucide-vue-next';
 import { useAuthStore } from '../stores/auth';
 const auth = useAuthStore();
 const settings = [
@@ -17,15 +17,9 @@ const settings = [
   },
   {
     to: '/history',
-    title: 'Histórico da planilha',
+    title: 'Histórico financeiro',
     description: 'Consulte os registros originais importados.',
     icon: History,
-  },
-  {
-    to: '/imports',
-    title: 'Importações',
-    description: 'Traga sua planilha e confira os dados.',
-    icon: Upload,
   },
 ];
 </script>

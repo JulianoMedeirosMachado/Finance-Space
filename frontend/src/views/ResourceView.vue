@@ -7,6 +7,7 @@ import { dateLabel, money, monthLabel, natureLabels, statusLabels } from '../uti
 import RecordForm from '../components/RecordForm.vue';
 import StatCard from '../components/StatCard.vue';
 import type { FinanceRecord, RecordData, ResourceKind } from '../types';
+import { serializeCsv } from '../utils/csv';
 const props = defineProps<{ kind: ResourceKind }>();
 const finance = useFinanceStore();
 const definition = computed(() => resources[props.kind]);
@@ -33,7 +34,13 @@ const rows = computed(() =>
   }),
 );
 const amountTotal = computed(() =>
-  rows.value.reduce((sum, record) => sum + Number(record.data.amount || 0), 0),
+  rows.value.reduce(
+    (sum, record) =>
+      sum +
+      Number(record.data.amount || 0) *
+        (props.kind === 'benefits' && record.data.nature === 'expense' ? -1 : 1),
+    0,
+  ),
 );
 function display(record: FinanceRecord, key: string) {
   const value = record.data[key];
@@ -51,7 +58,10 @@ function display(record: FinanceRecord, key: string) {
     } else if (field?.type === 'date') {
       result = dateLabel(value);
     } else if (key === 'nature') {
-      result = natureLabels[String(value)] || String(value);
+      result =
+        field?.options?.find((option) => option.value === value)?.label ||
+        natureLabels[String(value)] ||
+        String(value);
     } else if (key === 'status') {
       result = statusLabels[String(value)] || String(value);
     } else if (key === 'type') {
@@ -81,15 +91,13 @@ async function confirmDelete() {
 }
 function exportCsv() {
   const columns = definition.value.columns;
-  const escape = (value: string) => `"${value.replace(/^[=+@-]/, "'$&").replace(/"/g, '""')}"`;
   const header = columns.map(
     (key) => definition.value.fields.find((field) => field.key === key)?.label || key,
   );
-  const csv =
-    '\ufeff' +
-    [header, ...rows.value.map((record) => columns.map((key) => display(record, key)))]
-      .map((row) => row.map(escape).join(';'))
-      .join('\r\n');
+  const csv = serializeCsv([
+    header,
+    ...rows.value.map((record) => columns.map((key) => display(record, key))),
+  ]);
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -120,7 +128,12 @@ function exportCsv() {
       detail="Saldo realizado até a competência"
     />
   </div>
-  <div v-if="kind === 'benefits' && finance.dashboard" class="stats-grid three">
+  <div v-if="kind === 'benefits' && finance.dashboard" class="stats-grid">
+    <StatCard
+      label="Saldo anterior"
+      :value="finance.dashboard.benefits.previousBalance"
+      detail="Créditos menos compras dos meses anteriores"
+    />
     <StatCard
       label="Crédito do mês"
       :value="finance.dashboard.benefits.credits"
@@ -128,8 +141,19 @@ function exportCsv() {
     /><StatCard label="Consumo do mês" :value="finance.dashboard.benefits.spent" /><StatCard
       label="Saldo acumulado"
       :value="finance.dashboard.benefits.balance"
-      detail="Créditos menos compras até este mês"
+      detail="Saldo anterior + créditos − consumo do mês"
     />
+  </div>
+  <div v-if="kind === 'benefits' && finance.dashboard" class="benefit-reconciliation">
+    <span
+      >Resultado do mês: <strong>{{ money(finance.dashboard.benefits.monthBalance) }}</strong></span
+    >
+    <span
+      >{{ money(finance.dashboard.benefits.previousBalance) }} +
+      {{ money(finance.dashboard.benefits.credits) }} −
+      {{ money(finance.dashboard.benefits.spent) }} =
+      <strong>{{ money(finance.dashboard.benefits.balance) }}</strong></span
+    >
   </div>
   <div v-if="kind === 'settlements' && finance.dashboard" class="stats-grid three">
     <StatCard
@@ -265,16 +289,17 @@ function exportCsv() {
           {{
             search
               ? 'Tente outro termo ou ajuste os filtros.'
-              : 'Adicione um registro ou importe os dados da sua planilha.'
+              : 'Use o botão acima para adicionar seu primeiro registro.'
           }}
         </p>
-        <RouterLink class="text-button" to="/imports">Importar minha planilha →</RouterLink>
       </div>
     </div>
     <div class="table-footer">
       <span>{{ rows.length }} registro{{ rows.length === 1 ? '' : 's' }}</span
       ><span v-if="definition.columns.includes('amount')"
-        >Soma dos valores exibidos: <strong>{{ money(amountTotal) }}</strong></span
+        >{{
+          kind === 'benefits' ? 'Resultado dos registros exibidos' : 'Soma dos valores exibidos'
+        }}: <strong>{{ money(amountTotal) }}</strong></span
       >
     </div>
   </section>

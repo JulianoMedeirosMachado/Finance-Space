@@ -14,10 +14,12 @@ import { monthlyEntries, summarize, addMonths } from './calculations';
 export class FinanceService {
   constructor(@Inject(DatabaseService) private readonly database: DatabaseService) {}
 
-  async list(userId: string, executor: QueryExecutor = this.database) {
-    return executor.query<FinanceRecord & Record<string, unknown>>(
-      'SELECT id,kind,data,version,created_at,updated_at FROM records WHERE user_id=$1 ORDER BY created_at,id',
-      [userId],
+  async list(userId: string) {
+    return this.database.forUser(userId, (executor) =>
+      executor.query<FinanceRecord & Record<string, unknown>>(
+        'SELECT id,kind,data,version,created_at,updated_at FROM records WHERE user_id=$1 ORDER BY created_at,id',
+        [userId],
+      ),
     );
   }
 
@@ -29,6 +31,7 @@ export class FinanceService {
       cardId: 'cards',
       personId: 'people',
       categoryId: 'categories',
+      goalId: 'goals',
     };
     for (const [field, kind] of Object.entries(mapping)) {
       if (data[field]) {
@@ -57,7 +60,7 @@ export class FinanceService {
 
   async save(userId: string, kind: ResourceKind, input: unknown, id?: string, version?: number) {
     const data = parseRecordData(kind, input);
-    const result = await this.database.transaction(async (database) => {
+    const result = await this.database.forUser(userId, async (database) => {
       await database.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [userId]);
       await this.validateLinks(userId, data, database);
       let duplicate = false;
@@ -94,10 +97,10 @@ export class FinanceService {
   }
 
   async remove(userId: string, id: string) {
-    await this.database.transaction(async (database) => {
+    await this.database.forUser(userId, async (database) => {
       await database.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [userId]);
       const references = await database.query(
-        "SELECT id FROM records WHERE user_id=$1 AND id<>$2 AND (data->>'accountId'=$2::text OR data->>'destinationAccountId'=$2::text OR data->>'cardId'=$2::text OR data->>'personId'=$2::text OR data->>'categoryId'=$2::text OR data->>'sourceId'=$2::text) LIMIT 1",
+        "SELECT id FROM records WHERE user_id=$1 AND id<>$2 AND (data->>'accountId'=$2::text OR data->>'destinationAccountId'=$2::text OR data->>'cardId'=$2::text OR data->>'personId'=$2::text OR data->>'categoryId'=$2::text OR data->>'sourceId'=$2::text OR data->>'goalId'=$2::text) LIMIT 1",
         [userId, id],
       );
       if (references.length === 0) {

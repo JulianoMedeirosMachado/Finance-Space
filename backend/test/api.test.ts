@@ -5,16 +5,26 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:net';
-import ExcelJS from 'exceljs';
+import { randomInt } from 'node:crypto';
 
 test(
-  'HTTP workflow enforces authentication, ownership, CSRF and optimistic locking and imports atomically',
+  'HTTP workflow enforces authentication, ownership, CSRF, optimistic locking and goal tracking without the retired importer',
   { timeout: 45000 },
   async () => {
-    const server = createServer();
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const port = (server.address() as { port: number }).port;
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    let port = 0;
+    for (let attempt = 0; attempt < 20 && port === 0; attempt++) {
+      const candidate = randomInt(49152, 65535);
+      const server = createServer();
+      const available = await new Promise<boolean>((resolve) => {
+        server.once('error', () => resolve(false));
+        server.listen(candidate, '127.0.0.1', () => resolve(true));
+      });
+      if (available) {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+        port = candidate;
+      }
+    }
+    assert.ok(port > 0, 'No test port is available.');
     const directory = await mkdtemp(join(tmpdir(), 'finance-space-api-'));
     const origin = `http://127.0.0.1:${port}`;
     const child = spawn(process.execPath, [resolve('dist/main.js')], {
@@ -63,6 +73,17 @@ test(
           body: data === undefined ? undefined : JSON.stringify(data),
         });
       assert.equal((await request('/finance/records')).status, 401);
+      assert.equal((await request('/finance/export')).status, 401);
+      assert.equal((await request('/finance/dashboard?month=2026-10')).status, 401);
+      const invalidSignup = await request('/auth/register', 'POST', {
+        name: 'Test User',
+        email: 'invalid',
+        password: 'short',
+      });
+      assert.equal(invalidSignup.status, 400);
+      assert.deepEqual(await invalidSignup.json(), {
+        message: 'E-mail: informe um formato válido. Senha: informe no mínimo 10 caracteres.',
+      });
       const signup = await request('/auth/register', 'POST', {
         name: 'Test User',
         email: 'test@example.test',
@@ -88,6 +109,29 @@ test(
       const creation = await request('/finance/records/accounts', 'POST', accountInput, cookie);
       assert.equal(creation.status, 201);
       const account = (await creation.json()) as { id: string; version: number };
+      assert.equal(creation.headers.get('cache-control'), 'no-store');
+      assert.equal(
+        (
+          await request(
+            '/finance/records/accounts',
+            'POST',
+            { ...accountInput, userId: account.id },
+            cookie,
+          )
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await request(
+            '/finance/records/accounts',
+            'POST',
+            { ...accountInput, role: 'admin' },
+            cookie,
+          )
+        ).status,
+        400,
+      );
       const update = { data: { ...accountInput, name: 'Updated' }, version: account.version };
       assert.equal(
         (await request(`/finance/records/accounts/${account.id}`, 'PUT', update, cookie)).status,
@@ -106,6 +150,25 @@ test(
       assert.equal(
         (
           await request(
+            `/finance/records/accounts/${account.id}`,
+            'PUT',
+            { data: accountInput, version: 2 },
+            secondCookie,
+          )
+        ).status,
+        409,
+      );
+      const isolatedDashboard = (await (
+        await request('/finance/dashboard?month=2026-10', 'GET', undefined, secondCookie)
+      ).json()) as { balances: unknown[] };
+      assert.deepEqual(isolatedDashboard.balances, []);
+      const isolatedExport = (await (
+        await request('/finance/export', 'GET', undefined, secondCookie)
+      ).json()) as { records: unknown[] };
+      assert.deepEqual(isolatedExport.records, []);
+      assert.equal(
+        (
+          await request(
             '/finance/records/cards',
             'POST',
             { name: 'Wrong owner', accountId: account.id },
@@ -118,45 +181,91 @@ test(
         await (await request('/finance/records', 'GET', undefined, secondCookie)).json(),
         [],
       );
-      const workbook = new ExcelJS.Workbook();
-      workbook.addWorksheet('Receitas').getRow(5).values = [
-        'SAL-001',
-        'Work',
-        'Salary',
-        2500,
-        new Date('2026-10-01'),
-        undefined,
-        'Sim',
-      ];
-      const bytes = await workbook.xlsx.writeBuffer();
-      const upload = new FormData();
-      upload.append('file', new Blob([bytes as unknown as ArrayBuffer]), 'finance.xlsx');
-      const previewResponse = await fetch(`${origin}/api/imports/preview`, {
-        method: 'POST',
-        headers: { Cookie: cookie, Origin: origin },
-        body: upload,
+      assert.equal((await request('/imports/preview', 'POST', {}, cookie)).status, 404);
+      const missingRoute = await request('/imports', 'GET', undefined, cookie);
+      assert.equal(missingRoute.status, 404);
+      assert.deepEqual(await missingRoute.json(), {
+        message: 'O recurso solicitado não foi encontrado.',
       });
-      assert.equal(previewResponse.status, 201);
-      const preview = (await previewResponse.json()) as { id: string; errors: unknown[] };
-      assert.deepEqual(preview.errors, []);
+      const goalResponse = await request(
+        '/finance/records/goals',
+        'POST',
+        { name: 'GPU', targetAmount: 500000, monthlyAmount: 10000 },
+        cookie,
+      );
+      assert.equal(goalResponse.status, 201);
+      const goal = (await goalResponse.json()) as { id: string };
       assert.equal(
-        (await request('/imports/confirm', 'POST', { id: preview.id, excluded: [] }, secondCookie))
+        (
+          await request(
+            '/finance/records/goalContributions',
+            'POST',
+            { goalId: goal.id, amount: 10000, date: '2026-10-22' },
+            secondCookie,
+          )
+        ).status,
+        400,
+      );
+      const contributionResponse = await request(
+        '/finance/records/goalContributions',
+        'POST',
+        { goalId: goal.id, amount: 10000, date: '2026-10-22' },
+        cookie,
+      );
+      assert.equal(contributionResponse.status, 201);
+      const contribution = (await contributionResponse.json()) as { id: string; version: number };
+      const dashboard = (await (
+        await request('/finance/dashboard?month=2026-10', 'GET', undefined, cookie)
+      ).json()) as {
+        income: number;
+        expenses: number;
+        investments: number;
+        goals: { savedAmount: number; progress: number; remainingAmount: number }[];
+      };
+      assert.equal(dashboard.goals[0].savedAmount, 10000);
+      assert.equal(dashboard.goals[0].progress, 2);
+      assert.equal(dashboard.goals[0].remainingAmount, 490000);
+      assert.equal(dashboard.income + dashboard.expenses + dashboard.investments, 0);
+      assert.equal(
+        (await request(`/finance/records/${goal.id}`, 'DELETE', undefined, cookie)).status,
+        409,
+      );
+      assert.equal(
+        (
+          await request(
+            `/finance/records/goalContributions/${contribution.id}`,
+            'PUT',
+            {
+              data: {
+                goalId: goal.id,
+                amount: 20000,
+                date: '2026-10-22',
+                note: 'Updated contribution',
+              },
+              version: contribution.version,
+            },
+            cookie,
+          )
+        ).status,
+        200,
+      );
+      const updatedDashboard = (await (
+        await request('/finance/dashboard?month=2026-10', 'GET', undefined, cookie)
+      ).json()) as { goals: { savedAmount: number; progress: number }[] };
+      assert.equal(updatedDashboard.goals[0].progress, 4);
+      assert.equal(
+        (await request(`/finance/records/${contribution.id}`, 'DELETE', undefined, secondCookie))
           .status,
         404,
       );
       assert.equal(
-        (await request('/imports/confirm', 'POST', { id: preview.id, excluded: [] }, cookie))
-          .status,
-        201,
+        (await request(`/finance/records/${contribution.id}`, 'DELETE', undefined, cookie)).status,
+        200,
       );
-      assert.equal(
-        (
-          (await (
-            await request('/finance/dashboard?month=2026-10', 'GET', undefined, cookie)
-          ).json()) as { income: number }
-        ).income,
-        250000,
-      );
+      const clearedDashboard = (await (
+        await request('/finance/dashboard?month=2026-10', 'GET', undefined, cookie)
+      ).json()) as { goals: { savedAmount: number }[] };
+      assert.equal(clearedDashboard.goals[0].savedAmount, 0);
       const exportResponse = await request('/finance/export', 'GET', undefined, cookie);
       assert.equal(exportResponse.status, 200);
       assert.match(exportResponse.headers.get('content-disposition')!, /attachment/);

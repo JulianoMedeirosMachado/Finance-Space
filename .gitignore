@@ -1,4 +1,5 @@
 .DS_Store
+/AGENTS.md
 node_modules
 /dist
 
@@ -26,6 +27,24 @@ pnpm-debug.log*
 /vendor/
 *.log
 .env
+.env.*
+!.env.example
+!.env.sample
+*.fsbackup
+*.dump
+*.sql.gz
+*.sql.zip
+*.sqlite
+*.sqlite3
+*.db
+*.pem
+*.key
+*.xlsx
+*.xls
+*.csv
+*.tsv
+/data/
+/exports/
 **/dist/
 backend/data/
 backups/

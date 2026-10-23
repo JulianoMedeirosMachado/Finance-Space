@@ -12,7 +12,7 @@ import {
   Wallet,
   Utensils,
   Users,
-  Upload,
+  Target,
   ChartNoAxesCombined,
   Settings,
   Sun,
@@ -26,8 +26,10 @@ import {
 } from 'lucide-vue-next';
 import { useAuthStore } from '../stores/auth';
 import { useFinanceStore } from '../stores/finance';
+import { usePrivacyStore } from '../stores/privacy';
 const auth = useAuthStore();
 const finance = useFinanceStore();
+const privacy = usePrivacyStore();
 const route = useRoute();
 const router = useRouter();
 const mobileOpen = ref(false);
@@ -44,6 +46,7 @@ const links = [
   { path: '/accounts', label: 'Contas bancárias', icon: Landmark },
   { path: '/benefits', label: 'Vale-alimentação', icon: Utensils },
   { path: '/settlements', label: 'Acertos', icon: Users },
+  { path: '/goals', label: 'Metas', icon: Target },
   { path: '/reports', label: 'Relatórios', icon: ChartNoAxesCombined },
 ];
 watch(
@@ -58,6 +61,7 @@ watch(
   () => auth.user?.id,
   async (id) => {
     finance.reset();
+    privacy.hide();
     if (id) {
       await finance.refresh();
     }
@@ -117,8 +121,7 @@ async function logout() {
         >
       </nav>
       <div class="sidebar-bottom">
-        <RouterLink to="/imports"><Upload :size="18" /> Importar planilha</RouterLink
-        ><RouterLink to="/settings"><Settings :size="18" /> Configurações</RouterLink>
+        <RouterLink to="/settings"><Settings :size="18" /> Configurações</RouterLink>
         <div class="profile">
           <span class="avatar">{{ auth.user.name.slice(0, 1).toUpperCase() }}</span
           ><span class="profile-name">{{ auth.user.name }}<small>Minha conta pessoal</small></span
@@ -141,10 +144,7 @@ async function logout() {
             >Finance Space
             <span class="breadcrumb"
               >/
-              {{
-                links.find((link) => link.path === route.path)?.label ||
-                (route.path === '/imports' ? 'Importação' : 'Configurações')
-              }}</span
+              {{ links.find((link) => link.path === route.path)?.label || 'Configurações' }}</span
             ></span
           >
         </div>

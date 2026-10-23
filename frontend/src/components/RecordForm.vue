@@ -24,9 +24,11 @@ for (const field of definition.fields) {
           : field.type === 'month'
             ? finance.month
             : field.type === 'date'
-              ? finance.month === defaultDate.slice(0, 7)
-                ? defaultDate
-                : `${finance.month}-01`
+              ? !field.required
+                ? ''
+                : props.kind === 'goalContributions' || finance.month === defaultDate.slice(0, 7)
+                  ? defaultDate
+                  : `${finance.month}-01`
               : field.key === 'openingBalance'
                 ? '0.00'
                 : ''))

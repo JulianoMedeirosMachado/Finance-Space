@@ -243,4 +243,29 @@ export const resources: Record<ResourceKind, ResourceDefinition> = {
     columns: ['month', 'description', 'amount', 'personId', 'cardId', 'originalStatus'],
     readOnly: true,
   },
+  goals: {
+    title: 'Metas',
+    singular: 'meta',
+    description: 'Defina um objetivo e acompanhe cada passo até chegar lá.',
+    fields: [
+      field('name', 'Nome da meta', 'text', true),
+      { ...field('targetAmount', 'Valor do objetivo (R$)', 'money', true), min: 0.01 },
+      { ...field('monthlyAmount', 'Aporte mensal planejado (R$)', 'money'), min: 0 },
+      field('deadline', 'Data desejada', 'date'),
+      note,
+    ],
+    columns: ['name', 'targetAmount', 'monthlyAmount', 'deadline'],
+  },
+  goalContributions: {
+    title: 'Aportes nas metas',
+    singular: 'aporte',
+    description: 'Registre os valores que você já separou para sua meta.',
+    fields: [
+      { ...field('goalId', 'Meta', 'select', true), source: 'goals' },
+      { ...field('amount', 'Valor do aporte (R$)', 'money', true), min: 0.01 },
+      field('date', 'Data', 'date', true),
+      note,
+    ],
+    columns: ['goalId', 'date', 'amount', 'note'],
+  },
 };

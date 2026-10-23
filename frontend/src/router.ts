@@ -13,7 +13,7 @@ export const router = createRouter({
     },
     { path: '/dashboard', component: () => import('./views/OverviewView.vue') },
     { path: '/month', component: () => import('./views/MonthView.vue') },
-    { path: '/imports', component: () => import('./views/ImportView.vue') },
+    { path: '/goals', component: () => import('./views/GoalsView.vue') },
     { path: '/reports', component: () => import('./views/ReportsView.vue') },
     { path: '/settings', component: () => import('./views/SettingsView.vue') },
     ...[

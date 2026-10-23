@@ -3,6 +3,8 @@ import { PGlite } from '@electric-sql/pglite';
 import { Pool } from 'pg';
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { z } from 'zod';
+import { applyRowSecurity } from './security-migration';
 
 export interface QueryExecutor {
   query<T extends Record<string, unknown> = Record<string, unknown>>(
@@ -83,6 +85,15 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy, QueryExec
     return result;
   }
 
+  async forUser<T>(userId: string, operation: (executor: QueryExecutor) => Promise<T>): Promise<T> {
+    const ownerId = z.uuid().parse(userId);
+    return this.transaction(async (database) => {
+      await database.query("SELECT set_config('finance_space.user_id',$1,true)", [ownerId]);
+      await database.query('SET LOCAL ROLE finance_space_runtime');
+      return operation(database);
+    });
+  }
+
   private async migrate() {
     await this.query(
       `CREATE TABLE IF NOT EXISTS users (id UUID PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL, password_hash TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
@@ -108,6 +119,23 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy, QueryExec
     await this.query(
       `CREATE TABLE IF NOT EXISTS imports (id UUID PRIMARY KEY, user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, filename TEXT NOT NULL, fingerprint TEXT NOT NULL, summary JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE(user_id, fingerprint))`,
     );
+    await this.query(
+      'CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())',
+    );
+    await this.transaction(async (database) => {
+      const applied = await database.query('SELECT version FROM schema_migrations WHERE version=1');
+      if (applied.length === 0) {
+        await database.query(
+          "ALTER TABLE records DROP CONSTRAINT IF EXISTS records_kind_check, ADD CONSTRAINT records_kind_check CHECK (kind IN ('accounts','cards','categories','people','transactions','recurring','installments','invoices','income','benefits','settlements','history','goals','goalContributions'))",
+        );
+        await database.query('INSERT INTO schema_migrations(version) VALUES(1)');
+      }
+      const secured = await database.query('SELECT version FROM schema_migrations WHERE version=2');
+      if (secured.length === 0) {
+        await applyRowSecurity(database);
+        await database.query('INSERT INTO schema_migrations(version) VALUES(2)');
+      }
+    });
   }
 
   async onModuleDestroy() {

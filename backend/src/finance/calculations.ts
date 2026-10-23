@@ -1,4 +1,5 @@
 import { FinanceData, FinanceRecord } from './finance.schema';
+import { summarizeGoals } from './goals';
 
 export function monthIndex(month: string) {
   const [year, value] = month.split('-').map(Number);
@@ -188,6 +189,12 @@ export function summarize(records: FinanceRecord[], month: string) {
   const benefits = {
     credits: benefitTotal('income', true),
     spent: benefitTotal('expense', true),
+    previousBalance:
+      benefitTotal('income', false) -
+      benefitTotal('expense', false) -
+      benefitTotal('income', true) +
+      benefitTotal('expense', true),
+    monthBalance: benefitTotal('income', true) - benefitTotal('expense', true),
     balance: benefitTotal('income', false) - benefitTotal('expense', false),
   };
   const categories = records
@@ -241,6 +248,7 @@ export function summarize(records: FinanceRecord[], month: string) {
     entries,
     cards,
     benefits,
+    goals: summarizeGoals(records),
     thirdParty,
     categories,
     balances,

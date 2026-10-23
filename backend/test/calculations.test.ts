@@ -133,6 +133,8 @@ test('benefits carry forward without entering salary and card expenses', () => {
     '2026-10',
   );
   assert.equal(summary.benefits.balance, 7500);
+  assert.equal(summary.benefits.previousBalance, 10000);
+  assert.equal(summary.benefits.monthBalance, -2500);
   assert.equal(summary.benefits.spent, 2500);
   assert.equal(summary.income, 0);
   assert.equal(summary.expenses, 0);

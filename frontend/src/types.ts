@@ -10,7 +10,9 @@ export type ResourceKind =
   | 'income'
   | 'benefits'
   | 'settlements'
-  | 'history';
+  | 'history'
+  | 'goals'
+  | 'goalContributions';
 export type RecordData = Record<string, string | number | boolean | undefined>;
 export interface FinanceRecord {
   id: string;
@@ -52,7 +54,14 @@ export interface Dashboard {
   pending: MonthlyEntry[];
   realizedIncome: number;
   cards: CardSummary[];
-  benefits: { credits: number; spent: number; balance: number };
+  benefits: {
+    credits: number;
+    spent: number;
+    previousBalance: number;
+    monthBalance: number;
+    balance: number;
+  };
+  goals: GoalSummary[];
   thirdParty: { id: string; name: string; charged: number; settled: number; remaining: number }[];
   categories: { name: string; amount: number }[];
   balances: { id: string; name: string; balance: number }[];
@@ -63,4 +72,18 @@ export interface Dashboard {
     investments: number;
     freeBalance: number;
   }[];
+}
+
+export interface GoalSummary {
+  id: string;
+  name: string;
+  targetAmount: number;
+  monthlyAmount: number;
+  savedAmount: number;
+  remainingAmount: number;
+  progress: number;
+  completed: boolean;
+  estimatedContributions: number | null;
+  deadline?: string;
+  contributionCount: number;
 }

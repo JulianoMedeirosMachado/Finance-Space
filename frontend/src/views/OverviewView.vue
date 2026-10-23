@@ -3,7 +3,8 @@ import { computed } from 'vue';
 import {
   ArrowUpRight,
   ArrowRight,
-  Upload,
+  Eye,
+  EyeOff,
   Plus,
   Sparkles,
   CreditCard,
@@ -11,11 +12,13 @@ import {
 } from 'lucide-vue-next';
 import { useAuthStore } from '../stores/auth';
 import { useFinanceStore } from '../stores/finance';
-import { money, monthLabel } from '../utils/format';
+import { usePrivacyStore } from '../stores/privacy';
+import { monthLabel } from '../utils/format';
 import StatCard from '../components/StatCard.vue';
 import TrendChart from '../components/TrendChart.vue';
 const auth = useAuthStore();
 const finance = useFinanceStore();
+const privacy = usePrivacyStore();
 const summary = computed(() => finance.dashboard);
 const categories = computed(() => summary.value?.categories.slice(0, 5) || []);
 const totalCategories = computed(() =>
@@ -30,42 +33,57 @@ const colors = ['#48cfa4', '#7d8ff0', '#eab778', '#c58bf0', '#77b9e5'];
       <h1>Olá, {{ auth.user?.name.split(' ')[0] }}<span class="greeting-dot">.</span></h1>
       <p>Aqui está o panorama das suas finanças em {{ monthLabel(finance.month) }}.</p>
     </div>
-    <RouterLink class="button primary" to="/transactions"
-      ><Plus :size="18" />Novo lançamento</RouterLink
-    >
+    <div class="page-actions">
+      <button
+        class="button secondary"
+        :aria-label="privacy.hidden ? 'Mostrar valores do painel' : 'Ocultar valores do painel'"
+        :aria-pressed="privacy.hidden"
+        @click="privacy.toggle"
+      >
+        <Eye v-if="privacy.hidden" :size="18" /><EyeOff v-else :size="18" />{{
+          privacy.hidden ? 'Mostrar valores' : 'Ocultar valores'
+        }}</button
+      ><RouterLink class="button primary" to="/transactions"
+        ><Plus :size="18" />Novo lançamento</RouterLink
+      >
+    </div>
   </div>
   <div v-if="!finance.records.length && !finance.loading" class="welcome-banner">
     <div class="welcome-icon"><Sparkles :size="25" /></div>
     <div>
       <h3>Seu próximo capítulo começa aqui.</h3>
-      <p>Traga sua planilha para o Finance Space e veja seus números ganharem perspectiva.</p>
+      <p>Cadastre suas contas, organize seus lançamentos e comece a planejar suas metas.</p>
     </div>
-    <RouterLink class="button secondary" to="/imports"
-      ><Upload :size="16" />Importar planilha</RouterLink
+    <RouterLink class="button secondary" to="/accounts"
+      ><Plus :size="16" />Adicionar conta</RouterLink
     >
   </div>
   <template v-if="summary"
     ><div class="stats-grid">
       <StatCard
+        :masked="privacy.hidden"
         label="Receitas previstas"
         :value="summary.income"
         detail="Entradas planejadas para o mês"
         tone="green"
       /><StatCard
+        :masked="privacy.hidden"
         label="Despesas e investimentos"
         :value="summary.expenses + summary.investments"
         detail="Recorrentes, parcelas e avulsos"
         tone="orange"
       /><StatCard
+        :masked="privacy.hidden"
         label="Acertos previstos"
         :value="summary.reimbursements"
         detail="Participação de outras pessoas"
         tone="purple"
       /><StatCard
+        :masked="privacy.hidden"
         label="Saldo livre previsto"
         :value="summary.freeBalance"
         detail="Receitas + acertos − saídas"
-        :tone="summary.freeBalance < 0 ? 'red' : 'highlight'"
+        :tone="!privacy.hidden && summary.freeBalance < 0 ? 'red' : 'highlight'"
       />
     </div>
     <div class="dashboard-grid">
@@ -77,7 +95,12 @@ const colors = ['#48cfa4', '#7d8ff0', '#eab778', '#c58bf0', '#77b9e5'];
           </div>
           <ArrowUpRight :size="20" class="muted" />
         </div>
-        <TrendChart :items="summary.trend" />
+        <TrendChart v-if="!privacy.hidden" :items="summary.trend" />
+        <div v-else class="private-chart">
+          <EyeOff :size="27" />
+          <p>Seus valores estão ocultos.</p>
+          <button class="text-button" @click="privacy.toggle">Mostrar o comparativo</button>
+        </div>
       </section>
       <section class="panel category-panel">
         <div class="panel-heading">
@@ -90,13 +113,15 @@ const colors = ['#48cfa4', '#7d8ff0', '#eab778', '#c58bf0', '#77b9e5'];
           <div v-for="(category, index) in categories" :key="category.name" class="category-item">
             <div>
               <span><i :style="{ background: colors[index] }" />{{ category.name }}</span
-              ><strong>{{ money(category.amount) }}</strong>
+              ><strong>{{ privacy.formatAmount(category.amount) }}</strong>
             </div>
             <div class="category-track">
               <div
                 :style="{
                   background: colors[index],
-                  width: `${(Math.abs(category.amount) / totalCategories) * 100}%`,
+                  width: privacy.hidden
+                    ? '0%'
+                    : `${(Math.abs(category.amount) / totalCategories) * 100}%`,
                 }"
               />
             </div>
@@ -130,7 +155,7 @@ const colors = ['#48cfa4', '#7d8ff0', '#eab778', '#c58bf0', '#77b9e5'];
               }}</small>
             </div>
             <div class="align-right">
-              <strong>{{ money(card.reported ?? card.predicted) }}</strong
+              <strong>{{ privacy.formatAmount(card.reported ?? card.predicted) }}</strong
               ><small>{{
                 card.reported === undefined ? 'Previsto' : 'Informado pelo banco'
               }}</small>
@@ -159,7 +184,7 @@ const colors = ['#48cfa4', '#7d8ff0', '#eab778', '#c58bf0', '#77b9e5'];
               <strong>{{ entry.description }}</strong
               ><small>{{ finance.label(entry.cardId || entry.accountId) }}</small>
             </div>
-            <strong class="align-right">{{ money(entry.amount) }}</strong>
+            <strong class="align-right">{{ privacy.formatAmount(entry.amount) }}</strong>
           </div>
         </div>
         <div v-else class="empty-state compact">

@@ -13,6 +13,8 @@ export const resourceKinds = [
   'benefits',
   'settlements',
   'history',
+  'goals',
+  'goalContributions',
 ] as const;
 export type ResourceKind = (typeof resourceKinds)[number];
 export const kindSchema = z.enum(resourceKinds);
@@ -137,6 +139,23 @@ export const resourceSchemas = {
       date: dateSchema,
       nature: z.enum(['income', 'expense']),
       amount: money.nonnegative(),
+      note: z.string().max(2000).default(''),
+    })
+    .strict(),
+  goals: z
+    .object({
+      name: text,
+      targetAmount: money.positive(),
+      monthlyAmount: money.nonnegative().default(0),
+      deadline: dateSchema.optional(),
+      note: z.string().max(2000).default(''),
+    })
+    .strict(),
+  goalContributions: z
+    .object({
+      goalId: z.string().uuid(),
+      amount: money.positive(),
+      date: dateSchema,
       note: z.string().max(2000).default(''),
     })
     .strict(),
