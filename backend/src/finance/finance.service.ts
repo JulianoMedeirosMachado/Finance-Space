@@ -153,6 +153,7 @@ export class FinanceService {
         endMonth,
         remainingAmount,
         count,
+        finalAmount,
         day,
         ...data
       } = entry;

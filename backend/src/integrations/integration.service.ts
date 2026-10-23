@@ -14,6 +14,8 @@ import { IntegrationRepository, IntegrationSettings } from './integration.reposi
 import { AiSettings, BotReply, ExpenseProposal, TelegramUpdate } from './integration.schema';
 import { SecretVault } from './secret-vault';
 import { TelegramClient } from './telegram.client';
+import { buildTelegramExpense, TelegramDraft } from './telegram-expense';
+import { addMonths } from '../finance/calculations';
 
 @Injectable()
 export class IntegrationService {
@@ -37,6 +39,7 @@ export class IntegrationService {
       provider: settings?.provider || 'deepseek',
       model: settings?.model || '',
       hasKey: Boolean(settings?.encrypted_key),
+      insightsEnabled: Boolean(settings?.insights_enabled),
       telegram: settings?.telegram_user_id
         ? { id: settings.telegram_user_id, name: settings.telegram_name }
         : null,
@@ -70,6 +73,43 @@ export class IntegrationService {
       throw new BadRequestException('Configure sua IA no site antes de usar o bot.');
     }
     return credential;
+  }
+
+  async prepareAiCall(userId: string, insightsVersion?: number) {
+    const settings = await this.repository.settings(userId);
+    let credential: AiCredential;
+    if (
+      settings &&
+      (insightsVersion === undefined ||
+        (settings.insights_enabled && settings.insights_version === insightsVersion))
+    ) {
+      credential = this.credential(settings);
+      await this.reserveAiCall(userId);
+    } else {
+      throw new BadRequestException(
+        'Confira sua chave e a autorização dos insights na Integração IA.',
+      );
+    }
+    return credential;
+  }
+
+  async setInsightsEnabled(userId: string, enabled: boolean) {
+    await this.repository.database.forUser(userId, async (database) => {
+      await database.query('SELECT user_id FROM integration_settings WHERE user_id=$1 FOR UPDATE', [
+        userId,
+      ]);
+      const settings = await this.repository.settings(userId, database);
+      if (!enabled || (settings?.encrypted_key && this.vault.available())) {
+        await database.query(
+          `INSERT INTO integration_settings(user_id,insights_enabled,insights_version) VALUES($1,$2,1)
+          ON CONFLICT(user_id) DO UPDATE SET insights_enabled=$2,insights_version=integration_settings.insights_version+1`,
+          [userId, enabled],
+        );
+      } else {
+        throw new BadRequestException('Salve uma chave de IA antes de habilitar os insights.');
+      }
+    });
+    return this.status(userId);
   }
 
   async testAi(userId: string) {
@@ -188,8 +228,8 @@ export class IntegrationService {
               reply = {
                 chatId,
                 text: english
-                  ? 'Send one complete expense: item, amount, payment account/card, and optionally date, reporting month and category. /disconnect unlinks this account. Text only; no installments or transfers.'
-                  : 'Envie uma despesa completa: item, valor, conta/cartão e, se quiser, data, competência e categoria. /disconnect desvincula esta conta. Somente texto; sem parcelamentos ou transferências.',
+                  ? 'Send one complete expense: item, amount, payment account/card, and optionally date, reporting month and category. For installments: total amount and number of installments, or explicitly the amount of each installment. /disconnect unlinks this account. Text only; no transfers.'
+                  : 'Envie uma despesa completa: item, valor, conta/cartão e, se quiser, data, competência e categoria. Para parcelar: valor total e quantidade de parcelas, ou informe explicitamente o valor de cada parcela. /disconnect desvincula esta conta. Somente texto; sem transferências.',
               };
             } else {
               reply = await this.propose(settings, update.update_id, text, english);
@@ -237,8 +277,8 @@ export class IntegrationService {
   ): Promise<BotReply> {
     const userId = settings.user_id;
     const existing = await this.repository.database.forUser(userId, (database) =>
-      database.query<{ id: string; data: FinanceData }>(
-        'SELECT id,data FROM telegram_drafts WHERE user_id=$1 AND update_id=$2',
+      database.query<TelegramDraft & Record<string, unknown>>(
+        'SELECT id,data,kind FROM telegram_drafts WHERE user_id=$1 AND update_id=$2',
         [userId, updateId],
       ),
     );
@@ -255,7 +295,7 @@ export class IntegrationService {
       if (proposal.clarification) {
         reply = { chatId: settings.telegram_user_id!, text: proposal.clarification };
       } else {
-        const data = this.expenseData(proposal, references);
+        const { data, kind } = buildTelegramExpense(proposal, references, text);
         await this.repository.database.forUser(userId, async (database) => {
           await database.query(
             'SELECT user_id FROM integration_settings WHERE user_id=$1 FOR UPDATE',
@@ -268,8 +308,8 @@ export class IntegrationService {
           ) {
             await this.finance.validateLinks(userId, data, database);
             await database.query(
-              'INSERT INTO telegram_drafts(id,user_id,update_id,data) VALUES($1,$2,$3,$4) ON CONFLICT(update_id) DO NOTHING',
-              [randomUUID(), userId, updateId, JSON.stringify(data)],
+              'INSERT INTO telegram_drafts(id,user_id,update_id,data,kind) VALUES($1,$2,$3,$4,$5) ON CONFLICT(update_id) DO NOTHING',
+              [randomUUID(), userId, updateId, JSON.stringify(data), kind],
             );
           } else {
             throw new BadRequestException(
@@ -279,8 +319,8 @@ export class IntegrationService {
         });
         draft = (
           await this.repository.database.forUser(userId, (database) =>
-            database.query<{ id: string; data: FinanceData }>(
-              'SELECT id,data FROM telegram_drafts WHERE user_id=$1 AND update_id=$2',
+            database.query<TelegramDraft & Record<string, unknown>>(
+              'SELECT id,data,kind FROM telegram_drafts WHERE user_id=$1 AND update_id=$2',
               [userId, updateId],
             ),
           )
@@ -315,35 +355,9 @@ export class IntegrationService {
     return proposal;
   }
 
-  private expenseData(proposal: ExpenseProposal, references: FinanceRecord[]) {
-    const paymentCount = Number(Boolean(proposal.accountId)) + Number(Boolean(proposal.cardId));
-    let data: FinanceData;
-    if (paymentCount === 1) {
-      const self = references.find((record) => record.kind === 'people' && record.data.isSelf);
-      data = parseRecordData('transactions', {
-        description: proposal.description,
-        amount: proposal.amount,
-        date: proposal.date,
-        month: proposal.month,
-        nature: 'expense',
-        status: proposal.cardId ? 'posted' : 'paid',
-        ...(proposal.accountId ? { accountId: proposal.accountId } : {}),
-        ...(proposal.cardId ? { cardId: proposal.cardId } : {}),
-        ...(proposal.categoryId ? { categoryId: proposal.categoryId } : {}),
-        ...(self ? { personId: self.id } : {}),
-        note: '',
-      });
-    } else {
-      throw new BadRequestException(
-        'Informe uma conta ou cartão sem ambiguidade e reenvie a despesa completa.',
-      );
-    }
-    return data;
-  }
-
   private draftReply(
     settings: IntegrationSettings,
-    draft: { id: string; data: FinanceData },
+    draft: TelegramDraft,
     references: { id: string; data: FinanceData }[],
     english: boolean,
   ): BotReply {
@@ -355,9 +369,18 @@ export class IntegrationService {
       style: 'currency',
       currency: 'BRL',
     }).format(Number(data.amount) / 100);
+    const money = (value: number) =>
+      new Intl.NumberFormat(english ? 'en-US' : 'pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      }).format(value / 100);
+    const schedule =
+      draft.kind === 'installments'
+        ? `\n${english ? 'Installment plan' : 'Parcelamento'}: ${data.count} × ${amount}\n${english ? 'Last installment' : 'Última parcela'}: ${money(Number(data.finalAmount ?? data.amount))}\n${english ? 'Total' : 'Total'}: ${money(Number(data.amount) * (Number(data.count) - 1) + Number(data.finalAmount ?? data.amount))}\n${english ? 'First reporting month' : 'Primeira competência'}: ${data.startMonth}\n${english ? 'Last reporting month' : 'Última competência'}: ${addMonths(String(data.startMonth), Number(data.count) - 1)}`
+        : `\n${amount}\n${english ? 'Date' : 'Data'}: ${data.date}\n${english ? 'Reporting month' : 'Competência'}: ${data.month}`;
     return {
       chatId: settings.telegram_user_id!,
-      text: `${english ? 'Review the AI proposal' : 'Confira a proposta da IA'}\n${data.description}\n${amount}\n${english ? 'Date' : 'Data'}: ${data.date}\n${english ? 'Reporting month' : 'Competência'}: ${data.month}\n${data.cardId ? (english ? 'Suggested card' : 'Cartão sugerido') : english ? 'Suggested account' : 'Conta sugerida'}: ${name(data.cardId || data.accountId)}\n${english ? 'Suggested category' : 'Categoria sugerida'}: ${name(data.categoryId)}\n\n${english ? 'Names and abbreviations may have been interpreted. Check the selected account/card before confirming. Expires in 24 hours. To correct, cancel and resend a complete message.' : 'Nomes e siglas podem ter sido interpretados. Confira a conta/cartão escolhido antes de confirmar. Expira em 24 horas. Para corrigir, cancele e reenvie uma mensagem completa.'}`,
+      text: `${english ? 'Review the AI proposal' : 'Confira a proposta da IA'}\n${data.description}${schedule}\n${data.cardId ? (english ? 'Suggested card' : 'Cartão sugerido') : english ? 'Suggested account' : 'Conta sugerida'}: ${name(data.cardId || data.accountId)}\n${english ? 'Suggested category' : 'Categoria sugerida'}: ${name(data.categoryId)}\n${english ? 'Responsible person' : 'Responsável'}: ${data.personId ? name(data.personId) : english ? 'You' : 'Você'}\n\n${english ? 'Names and abbreviations may have been interpreted. Check the account/card and responsible person before confirming. No reimbursement is marked as received. Expires in 24 hours. To correct, cancel and resend a complete message.' : 'Nomes e siglas podem ter sido interpretados. Confira a conta/cartão e o responsável antes de confirmar. Nenhum reembolso é marcado como recebido. Expira em 24 horas. Para corrigir, cancele e reenvie uma mensagem completa.'}`,
       buttons: [
         [
           { text: english ? 'Confirm' : 'Confirmar', callback_data: `confirm:${draft.id}` },
@@ -387,10 +410,11 @@ export class IntegrationService {
         const drafts = await database.query<{
           id: string;
           data: FinanceData;
+          kind: TelegramDraft['kind'];
           state: string;
           valid: boolean;
         }>(
-          'SELECT id,data,state,expires_at>NOW() AS valid FROM telegram_drafts WHERE id=$1 AND user_id=$2 FOR UPDATE',
+          'SELECT id,data,kind,state,expires_at>NOW() AS valid FROM telegram_drafts WHERE id=$1 AND user_id=$2 FOR UPDATE',
           [match[2], settings.user_id],
         );
         let response = english
@@ -409,20 +433,27 @@ export class IntegrationService {
         ) {
           if (match[1] === 'confirm') {
             await database.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [settings.user_id]);
-            const data = parseRecordData('transactions', draft.data);
+            const data = parseRecordData(draft.kind, draft.data);
             await this.finance.validateLinks(settings.user_id, data, database);
             const id = randomUUID();
-            await database.query(
-              "INSERT INTO records(id,user_id,kind,data) VALUES($1,$2,'transactions',$3)",
-              [id, settings.user_id, JSON.stringify(data)],
-            );
+            await database.query('INSERT INTO records(id,user_id,kind,data) VALUES($1,$2,$3,$4)', [
+              id,
+              settings.user_id,
+              draft.kind,
+              JSON.stringify(data),
+            ]);
             await database.query(
               "UPDATE telegram_drafts SET state='confirmed',record_id=$1 WHERE id=$2 AND user_id=$3",
               [id, draft.id, settings.user_id],
             );
-            response = english
-              ? 'Expense registered! You can edit it in Finance Space.'
-              : 'Despesa registrada! Você pode editá-la no Finance Space.';
+            response =
+              draft.kind === 'installments'
+                ? english
+                  ? 'Installment plan registered! Fine-tune it under Installments in Finance Space.'
+                  : 'Parcelamento registrado! Faça os ajustes finos em Parcelamentos no Finance Space.'
+                : english
+                  ? 'Expense registered! You can edit it in Finance Space.'
+                  : 'Despesa registrada! Você pode editá-la no Finance Space.';
           } else {
             await database.query(
               "UPDATE telegram_drafts SET state='cancelled' WHERE id=$1 AND user_id=$2",

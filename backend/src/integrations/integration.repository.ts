@@ -13,6 +13,8 @@ export interface IntegrationSettings extends Record<string, unknown> {
   link_expires_at: string | Date | null;
   candidate_id: string | null;
   candidate_name: string | null;
+  insights_enabled: boolean;
+  insights_version: number;
 }
 
 @Injectable()
@@ -34,7 +36,9 @@ export class IntegrationRepository {
     await this.database.forUser(userId, (database) =>
       database.query(
         `INSERT INTO integration_settings(user_id,provider,model,encrypted_key) VALUES($1,$2,$3,$4)
-      ON CONFLICT(user_id) DO UPDATE SET provider=$2,model=$3,encrypted_key=$4,updated_at=NOW()`,
+      ON CONFLICT(user_id) DO UPDATE SET provider=$2,model=$3,encrypted_key=$4,updated_at=NOW(),
+      insights_enabled=CASE WHEN integration_settings.provider IS DISTINCT FROM $2 THEN false ELSE integration_settings.insights_enabled END,
+      insights_version=integration_settings.insights_version+1`,
         [userId, input.provider, input.model, encrypted],
       ),
     );
@@ -43,7 +47,7 @@ export class IntegrationRepository {
   async deleteAi(userId: string) {
     await this.database.forUser(userId, async (database) => {
       await database.query(
-        'UPDATE integration_settings SET provider=NULL,model=NULL,encrypted_key=NULL,updated_at=NOW() WHERE user_id=$1',
+        'UPDATE integration_settings SET provider=NULL,model=NULL,encrypted_key=NULL,insights_enabled=false,insights_version=insights_version+1,updated_at=NOW() WHERE user_id=$1',
         [userId],
       );
       await database.query(

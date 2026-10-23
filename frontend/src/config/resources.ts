@@ -157,6 +157,7 @@ const definitions: Record<ResourceKind, ResourceDefinition> = {
       ...entry,
       field('startMonth', 'Primeira competência', 'month', true),
       { ...field('count', 'Quantidade de parcelas', 'number', true), min: 2, max: 600 },
+      { ...field('finalAmount', 'Última parcela (R$)', 'money'), min: 0.01 },
       { ...field('active', 'Ativo', 'checkbox'), default: true },
     ],
     columns: ['description', 'amount', 'count', 'startMonth', 'personId', 'cardId', 'active'],

@@ -8,10 +8,19 @@ import { IntegrationRepository } from './integration.repository';
 import { AiService } from './ai.service';
 import { TelegramClient } from './telegram.client';
 import { TelegramWorker } from './telegram.worker';
+import { InsightsController } from './insights.controller';
+import { InsightsService } from './insights.service';
 
 @Module({
   imports: [AuthModule, DatabaseModule, FinanceModule],
-  controllers: [IntegrationController],
-  providers: [IntegrationService, IntegrationRepository, AiService, TelegramClient, TelegramWorker],
+  controllers: [IntegrationController, InsightsController],
+  providers: [
+    IntegrationService,
+    IntegrationRepository,
+    AiService,
+    TelegramClient,
+    TelegramWorker,
+    InsightsService,
+  ],
 })
 export class IntegrationModule {}

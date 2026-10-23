@@ -84,6 +84,12 @@ test(
         });
       assert.equal((await request('/finance/records')).status, 401);
       assert.equal((await request('/integrations')).status, 401);
+      assert.equal((await request('/insights')).status, 401);
+      assert.equal((await request('/insights/weekly', 'POST')).status, 401);
+      assert.equal(
+        (await request('/integrations/insights', 'PATCH', { enabled: true })).status,
+        401,
+      );
       assert.equal((await request('/integrations/ai', 'PUT', {})).status, 401);
       assert.equal((await request('/integrations/telegram/link', 'POST')).status, 401);
       assert.equal(
@@ -140,6 +146,37 @@ test(
       const integrationStatus = await integrationSaved.json();
       assert.equal(integrationStatus.hasKey, true);
       assert.equal(integrationStatus.telegramAvailable, false);
+      assert.equal(integrationStatus.insightsEnabled, false);
+      assert.equal(
+        (
+          await request(
+            '/integrations/insights',
+            'PATCH',
+            { enabled: true },
+            cookie,
+            'https://evil.example.test',
+          )
+        ).status,
+        403,
+      );
+      assert.equal(
+        (await request('/integrations/insights', 'PATCH', { enabled: 'true' }, cookie)).status,
+        400,
+      );
+      assert.equal(
+        (await request('/integrations/insights', 'PATCH', { enabled: true }, cookie)).status,
+        200,
+      );
+      assert.equal(
+        (await (await request('/insights', 'GET', undefined, cookie)).json()).enabled,
+        true,
+      );
+      assert.equal((await request('/insights/invalid', 'POST', {}, cookie)).status, 400);
+      assert.equal(
+        (await request('/integrations/insights', 'PATCH', { enabled: false }, cookie)).status,
+        200,
+      );
+      assert.equal((await request('/insights/weekly', 'POST', {}, cookie)).status, 403);
       assert.ok(!JSON.stringify(integrationStatus).includes(aiKey));
       assert.equal((await request('/integrations/telegram/link', 'POST', {}, cookie)).status, 503);
       assert.equal((await request('/integrations/ai', 'DELETE', undefined, cookie)).status, 200);
@@ -383,6 +420,7 @@ test(
         '/goals',
         '/settings',
         '/integrations',
+        '/insights',
       ]) {
         assert.ok(new URL(path, origin).pathname.startsWith(manifest.scope));
         const page = await fetch(origin + path);

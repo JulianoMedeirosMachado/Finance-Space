@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Headers, Inject, Post, Put, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  Inject,
+  Patch,
+  Post,
+  Put,
+  Req,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { z } from 'zod';
 import { AuthService } from '../auth/auth.service';
@@ -28,6 +39,13 @@ export class IntegrationController {
   @Post('ai/test')
   async testAi(@Req() request: Request) {
     return this.integration.testAi((await this.auth.findUser(request.cookies.finance_session)).id);
+  }
+
+  @Patch('insights')
+  async insightsPreference(@Req() request: Request, @Body() body: unknown) {
+    const user = await this.auth.findUser(request.cookies.finance_session);
+    const input = z.object({ enabled: z.boolean() }).strict().parse(body);
+    return this.integration.setInsightsEnabled(user.id, input.enabled);
   }
 
   @Delete('ai')

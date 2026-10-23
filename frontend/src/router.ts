@@ -18,6 +18,7 @@ export const router = createRouter({
     { path: '/reports', component: () => import('./views/ReportsView.vue') },
     { path: '/settings', component: () => import('./views/SettingsView.vue') },
     { path: '/integrations', component: () => import('./views/IntegrationsView.vue') },
+    { path: '/insights', component: () => import('./views/InsightsView.vue') },
     ...[
       'accounts',
       'cards',

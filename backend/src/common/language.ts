@@ -8,6 +8,24 @@ export function requestLanguage(request: Request): Language {
 }
 
 const english: Record<string, string> = {
+  'Informe um responsável cadastrado sem ambiguidade e reenvie a mensagem completa.':
+    'Specify an unambiguous registered responsible person and resend the complete message.',
+  'Confira sua chave e a autorização dos insights na Integração IA.':
+    'Check your key and insights authorization in AI integration.',
+  'Salve uma chave de IA antes de habilitar os insights.':
+    'Save an AI key before enabling insights.',
+  'Os insights estão desabilitados. Ative a análise na Integração IA.':
+    'Insights are disabled. Enable analysis in AI integration.',
+  'Outra análise deste período já está em andamento. Atualize a página.':
+    'Another analysis for this period is already running. Refresh the page.',
+  'A autorização da IA mudou durante a geração. Nenhum relatório foi salvo.':
+    'AI authorization changed during generation. No report was saved.',
+  'A IA não retornou uma análise válida. Tente novamente mais tarde.':
+    'AI did not return a valid analysis. Try again later.',
+  'O total não pode ser dividido nesse número de parcelas.':
+    'The total cannot be split into that number of installments.',
+  'Informe uma conta ou cartão sem ambiguidade. Parcelamentos precisam de cartão.':
+    'Specify an unambiguous account or card. Installment plans require a card.',
   'O modelo não retornou JSON válido. Escolha um modelo compatível.':
     'The model did not return valid JSON. Choose a compatible model.',
   'Integrações não configuradas no servidor.': 'Integrations are not configured on the server.',

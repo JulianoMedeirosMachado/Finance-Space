@@ -78,6 +78,7 @@ test('AI adapter uses fixed HTTPS endpoints, minimal catalogs, JSON validation a
     assert.equal(request.provider.data_collection, 'deny');
     assert.equal(request.provider.allow_fallbacks, false);
     assert.equal(request.response_format.type, 'json_object');
+    assert.equal(request.max_tokens, 800);
     output = JSON.stringify({
       description: 'Paper',
       amount: 2290,
@@ -110,7 +111,58 @@ test('AI adapter uses fixed HTTPS endpoints, minimal catalogs, JSON validation a
     assert.match(instructions, /prefer an exact match/);
     assert.match(instructions, /Distinguish merchants from payment instruments/);
     assert.match(instructions, /Only use exact IDs from the catalog/);
+    assert.match(instructions, /amountBasis="per_installment"/);
+    const personId = randomUUID();
+    output = JSON.stringify({ ...JSON.parse(output), personId, personMentioned: true });
+    const assigned = await ai.interpret(
+      credential,
+      'Marta, shoes 300 on ML',
+      [
+        {
+          id: personId,
+          kind: 'people',
+          data: { name: 'Marta PRIVATE_SURNAME', isSelf: false },
+          version: 1,
+        },
+        {
+          id: randomUUID(),
+          kind: 'people',
+          data: { name: 'PRIVATE_OTHER', isSelf: false },
+          version: 1,
+        },
+        {
+          id: randomUUID(),
+          kind: 'people',
+          data: { name: 'PRIVATE_SELF', isSelf: true },
+          version: 1,
+        },
+      ],
+      'English',
+    );
+    assert.equal(assigned.personId, personId);
+    assert.equal(assigned.personMentioned, true);
+    assert.ok(JSON.stringify(request.messages).includes(personId));
+    assert.ok(!JSON.stringify(request.messages).includes('PRIVATE_'));
+    output = JSON.stringify({
+      title: 'Summary',
+      summary: 'Only aggregate data is used.',
+      findings: [
+        {
+          title: 'Budget',
+          detail: 'Review recorded commitments.',
+          suggestion: 'Check the next reporting month.',
+        },
+      ],
+    });
+    await ai.insights(credential, { currency: 'BRL', recordedCashBalance: 10000 }, 'English');
+    assert.equal(request.max_tokens, 2200);
+    assert.deepEqual(JSON.parse(request.messages[1].content), {
+      currency: 'BRL',
+      recordedCashBalance: 10000,
+    });
+    assert.ok(!JSON.stringify(request.messages).includes(credential.apiKey));
     output = JSON.stringify({ amount: -100 });
+    await assert.rejects(ai.insights(credential, {}, 'English'));
     await assert.rejects(ai.interpret(credential, 'bad input', [], 'English'));
     globalThis.fetch = async () => new Response(credential.apiKey, { status: 401 });
     await assert.rejects(
@@ -283,6 +335,10 @@ test(
         cardId: String(card.id),
         categoryId: String(category.id),
         clarification: null,
+        installments: 1,
+        amountBasis: 'total',
+        personId: null,
+        personMentioned: false,
       };
       const proposal = await service().handle(
         message(10, 101, 'Paper 22,90 on ML card for November'),
@@ -377,8 +433,36 @@ test(
         1,
       );
 
+      await database.query('UPDATE integration_settings SET ai_last_at=NULL WHERE user_id=$1', [
+        alice.id,
+      ]);
       ai.proposal = {
         ...ai.proposal,
+        description: 'Shoes',
+        amount: 10000,
+        installments: 3,
+        amountBasis: 'total',
+      };
+      const installmentPreview = await service().handle(
+        message(24, 101, 'Shoes 100 reais on ML in 3 installments for November'),
+      );
+      assert.match(installmentPreview!.text, /Installment plan/);
+      assert.match(installmentPreview!.text, /Last installment: R\$33\.34/);
+      const planAction = installmentPreview!.buttons![0][0].callback_data;
+      await Promise.all([
+        service().handle(callback(25, 101, planAction)),
+        service().handle(callback(26, 101, planAction)),
+      ]);
+      const plans = (await new FinanceService(database).list(alice.id)).filter(
+        (record) => record.kind === 'installments',
+      );
+      assert.equal(plans.length, 1);
+      assert.equal(plans[0].data.amount, 3333);
+      assert.equal(plans[0].data.finalAmount, 3334);
+      assert.equal(plans[0].data.startMonth, '2026-11');
+      ai.proposal = {
+        ...ai.proposal,
+        installments: 1,
         accountId: String(bobAccount.id),
         cardId: null,
         categoryId: null,
@@ -470,6 +554,55 @@ test(
           (record) => record.kind === 'transactions',
         ).length,
         1,
+      );
+      const finalPayment = await new FinanceService(database).realize(
+        alice.id,
+        '2027-01',
+        plans[0].id,
+      );
+      assert.equal((finalPayment.data as Record<string, unknown>).amount, 3334);
+      assert.equal((finalPayment.data as Record<string, unknown>).finalAmount, undefined);
+      await link(alice.id, 101, 200);
+      const restartedFinance = new FinanceService(database);
+      const responsible = await restartedFinance.save(alice.id, 'people', {
+        name: 'Marta Silva',
+        isSelf: false,
+      });
+      for (const count of [1, 3]) {
+        await database.query(
+          'UPDATE integration_settings SET ai_last_at=NULL,ai_count=0 WHERE user_id=$1',
+          [alice.id],
+        );
+        ai.proposal = {
+          ...ai.proposal,
+          description: `Responsible purchase ${count}`,
+          accountId: null,
+          cardId: String(card.id),
+          amount: 30000,
+          month: '2026-10',
+          personId: String(responsible.id),
+          personMentioned: true,
+          installments: count,
+        };
+        const preview = await service().handle(
+          message(201 + count, 101, `Marta, shoes 300 on ML in ${count} installments`),
+        );
+        assert.match(preview!.text, /Responsible person: Marta Silva/);
+        const confirm = preview!.buttons![0][0].callback_data;
+        await service().handle(callback(210 + count, 101, confirm));
+        await service().handle(callback(220 + count, 101, confirm));
+      }
+      const assignedRecords = (await restartedFinance.list(alice.id)).filter(
+        (record) => record.data.personId === responsible.id,
+      );
+      assert.equal(assignedRecords.filter((record) => record.kind === 'transactions').length, 1);
+      assert.equal(assignedRecords.filter((record) => record.kind === 'installments').length, 1);
+      assert.equal(assignedRecords.filter((record) => record.kind === 'settlements').length, 0);
+      assert.equal(
+        (await restartedFinance.list(bob.id)).some(
+          (record) => record.data.personId === responsible.id,
+        ),
+        false,
       );
       worker.onModuleDestroy();
     } finally {

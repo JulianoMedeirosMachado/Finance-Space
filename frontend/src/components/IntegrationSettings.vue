@@ -10,6 +10,7 @@ interface IntegrationStatus {
   provider: 'deepseek' | 'openrouter';
   model: string;
   hasKey: boolean;
+  insightsEnabled: boolean;
   telegram: { id: string; name: string } | null;
   candidate: { id: string; name: string } | null;
 }
@@ -108,6 +109,19 @@ async function disconnectTelegram() {
     notice.value = t('Telegram desconectado.');
   });
 }
+
+async function changeInsights(event: Event) {
+  const checkbox = event.target as HTMLInputElement;
+  const previous = status.value!.insightsEnabled;
+  await run(async () => {
+    status.value = await api<IntegrationStatus>('/integrations/insights', {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled: checkbox.checked }),
+    });
+    notice.value = t('Preferência dos insights atualizada.');
+  });
+  checkbox.checked = status.value?.insightsEnabled ?? previous;
+}
 </script>
 
 <template>
@@ -205,7 +219,46 @@ async function disconnectTelegram() {
         </fieldset>
       </form>
       <div class="integration-telegram">
+        <h3>{{ t('Insights da IA') }}</h3>
+        <label class="integration-consent">
+          <input
+            type="checkbox"
+            :checked="status.insightsEnabled"
+            :disabled="busy || (!status.insightsEnabled && (!status.hasKey || !status.aiAvailable))"
+            @change="changeInsights"
+          />
+          {{ t('Permitir análise financeira para insights semanais e mensais.') }}
+        </label>
+        <p class="field-hint">
+          {{
+            t(
+              'Compartilhamos totais, comparações, saldo registrado, previsões e progresso das metas. Categorias e metas usam códigos; não enviamos nomes, descrições de compras, observações, dados de login ou o histórico individual.',
+            )
+          }}
+        </p>
+        <p class="field-hint">
+          {{
+            t(
+              'A análise usa sua chave e pode consumir créditos. É gerada ao abrir cada seção para um novo período fechado, sem agendamento nem envio automático ao Telegram. Desativar impede novas análises e preserva o histórico.',
+            )
+          }}
+        </p>
+        <p v-if="!status.hasKey" class="field-hint">
+          {{ t('Salve uma chave de IA para habilitar os insights.') }}
+        </p>
+        <RouterLink to="/insights" class="button secondary">{{
+          t('Abrir insights da IA')
+        }}</RouterLink>
+      </div>
+      <div class="integration-telegram">
         <h3>Telegram</h3>
+        <p class="field-hint">
+          {{
+            t(
+              'Para despesas de outra pessoa, cite um responsável cadastrado: nome, item, valor e conta/cartão. Ele aparece na prévia e entra nos acertos, sem marcar reembolso como recebido. Só enviamos à IA referências aos nomes citados, não a lista completa de responsáveis nem seus saldos.',
+            )
+          }}
+        </p>
         <p v-if="!status.telegramAvailable" class="notice">
           {{ t('O administrador precisa configurar o bot central no servidor.') }}
         </p>
@@ -261,7 +314,7 @@ async function disconnectTelegram() {
           <p class="field-hint">
             {{
               t(
-                'Somente despesas por texto em conversa privada. Para corrigir, cancele o rascunho e reenvie a mensagem completa. Sem áudios, fotos, parcelamentos ou transferências nesta versão.',
+                'Despesas e parcelamentos por texto em conversa privada. Informe o total e a quantidade de parcelas, ou o valor explícito de cada parcela. Para corrigir, cancele e reenvie a mensagem completa. Sem áudios, fotos ou transferências.',
               )
             }}
           </p>

@@ -1,4 +1,58 @@
 export const english: Record<string, string> = {
+  'Para despesas de outra pessoa, cite um responsável cadastrado: nome, item, valor e conta/cartão. Ele aparece na prévia e entra nos acertos, sem marcar reembolso como recebido. Só enviamos à IA referências aos nomes citados, não a lista completa de responsáveis nem seus saldos.':
+    'For another person’s expenses, mention a registered responsible person: name, item, amount and account/card. They appear in the preview and settlement calculations, without marking reimbursement as received. AI only receives references to names mentioned, not the full list of people or their balances.',
+  'Última parcela (R$)': 'Last installment (BRL)',
+  'Insights da IA': 'AI insights',
+  'Permitir análise financeira para insights semanais e mensais.':
+    'Allow financial analysis for weekly and monthly insights.',
+  'Compartilhamos totais, comparações, saldo registrado, previsões e progresso das metas. Categorias e metas usam códigos; não enviamos nomes, descrições de compras, observações, dados de login ou o histórico individual.':
+    'We share totals, comparisons, recorded balance, forecasts and goal progress. Categories and goals use codes; we do not send names, purchase descriptions, notes, login details or individual history.',
+  'A análise usa sua chave e pode consumir créditos. É gerada ao abrir cada seção para um novo período fechado, sem agendamento nem envio automático ao Telegram. Desativar impede novas análises e preserva o histórico.':
+    'Analysis uses your key and may consume credits. It is generated when you open each section for a new completed period, without scheduling or automatic Telegram delivery. Disabling stops new analyses and preserves history.',
+  'Salve uma chave de IA para habilitar os insights.': 'Save an AI key to enable insights.',
+  'Abrir insights da IA': 'Open AI insights',
+  'Preferência dos insights atualizada.': 'Insights preference updated.',
+  'Despesas e parcelamentos por texto em conversa privada. Informe o total e a quantidade de parcelas, ou o valor explícito de cada parcela. Para corrigir, cancele e reenvie a mensagem completa. Sem áudios, fotos ou transferências.':
+    'Text expenses and installment plans in private chats. Specify the total and installment count, or explicitly the amount per installment. To correct, cancel and resend the complete message. No voice messages, photos or transfers.',
+  'Seus insights estão desabilitados': 'Your insights are disabled',
+  'Ative a análise financeira na Integração IA para receber resumos semanais e mensais. Seus relatórios anteriores continuam disponíveis.':
+    'Enable financial analysis in AI integration for weekly and monthly summaries. Your previous reports remain available.',
+  'Configurar integração': 'Configure integration',
+  'Vamos configurar sua IA': 'Set up your AI',
+  'Confira sua chave e a configuração do servidor na Integração IA para gerar novos insights.':
+    'Check your key and server configuration in AI integration to generate new insights.',
+  'Relatório do histórico': 'Historical report',
+  'Último período completo': 'Last completed period',
+  Atualizar: 'Refresh',
+  'Gerar análise': 'Generate analysis',
+  'Aguardando o intervalo entre análises para proteger seu consumo...':
+    'Waiting between analyses to protect your usage...',
+  'Sua IA está analisando os resumos. Isso pode levar um minuto. Você pode voltar depois.':
+    'Your AI is analyzing the summaries. This may take a minute. You can return later.',
+  'Esta análise não foi concluída. Confira sua configuração e tente novamente quando quiser. A tentativa pode ter consumido créditos.':
+    'This analysis was not completed. Check your settings and retry when you want. The attempt may have consumed credits.',
+  'Ainda não há análise salva para este período.':
+    'No analysis has been saved for this period yet.',
+  'ANÁLISE FINANCEIRA': 'FINANCIAL ANALYSIS',
+  Sugestão: 'Suggestion',
+  'Gerado em': 'Generated at',
+  Modelo: 'Model',
+  'Idioma do relatório': 'Report language',
+  'Esta análise usa os dados registrados e pode conter erros ou lacunas. Não altera seus lançamentos e não substitui orientação financeira profissional.':
+    'This analysis uses recorded data and may contain errors or gaps. It does not change your entries or replace professional financial advice.',
+  'Histórico de análises': 'Analysis history',
+  'Relatórios salvos não são gerados novamente ao abrir. O texto mantém o idioma utilizado na geração.':
+    'Saved reports are not regenerated when opened. The text keeps the language used during generation.',
+  'Ver período mais recente': 'View latest period',
+  'SEU DINHEIRO EM PERSPECTIVA': 'YOUR MONEY IN PERSPECTIVE',
+  'Resumos semanais e mensais, com dados calculados pelo app e interpretados pela sua IA.':
+    'Weekly and monthly summaries, with data calculated by the app and interpreted by your AI.',
+  'Período dos insights': 'Insights period',
+  'Insights semanais': 'Weekly insights',
+  'Insights mensais': 'Monthly insights',
+  'Carregando insights...': 'Loading insights...',
+  'A última parcela pode ter um valor diferente para ajustes de centavos. Deixe vazio para usar o valor padrão.':
+    'The last installment can have a different amount for cent adjustments. Leave blank to use the regular amount.',
   'Este link é pessoal: não compartilhe. A confirmação identifica uma conta do Telegram, não um dispositivo. Outras pessoas que apenas iniciam o bot não aparecem aqui.':
     'This link is personal: do not share it. Confirmation identifies a Telegram account, not a device. Other people who simply start the bot do not appear here.',
   'Integração IA': 'AI integration',
