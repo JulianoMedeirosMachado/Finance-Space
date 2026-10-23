@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '../i18n';
+
 import { computed } from 'vue';
 import { money, monthLabel } from '../utils/format';
 const props = defineProps<{
@@ -9,25 +11,25 @@ const max = computed(() =>
 );
 </script>
 <template>
-  <div class="trend-chart" role="img" aria-label="Comparativo mensal de receitas e despesas">
+  <div class="trend-chart" role="img" :aria-label="t('Comparativo mensal de receitas e despesas')">
     <div v-for="item in items" :key="item.month" class="trend-group">
       <div class="trend-bars">
         <div
           class="trend-bar income-bar"
           :style="{ height: `${Math.max(1, (item.income / max) * 100)}%` }"
-          :title="`Receitas: ${money(item.income)}`"
+          :title="`${t('Receitas')}: ${money(item.income)}`"
         />
         <div
           class="trend-bar expense-bar"
           :style="{ height: `${Math.max(1, ((item.expenses + item.investments) / max) * 100)}%` }"
-          :title="`Saídas: ${money(item.expenses + item.investments)}`"
+          :title="`${t('Saídas')}: ${money(item.expenses + item.investments)}`"
         />
       </div>
       <small>{{ monthLabel(item.month) }}</small>
     </div>
   </div>
   <div class="chart-legend">
-    <span><i class="income-dot" />Receitas</span
-    ><span><i class="expense-dot" />Despesas + investimentos</span>
+    <span><i class="income-dot" />{{ t('Receitas') }}</span
+    ><span><i class="expense-dot" />{{ t('Despesas + investimentos') }}</span>
   </div>
 </template>

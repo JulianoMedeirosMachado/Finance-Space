@@ -63,7 +63,7 @@ export interface Dashboard {
   };
   goals: GoalSummary[];
   thirdParty: { id: string; name: string; charged: number; settled: number; remaining: number }[];
-  categories: { name: string; amount: number }[];
+  categories: { name: string; amount: number; uncategorized?: boolean }[];
   balances: { id: string; name: string; balance: number }[];
   trend: {
     month: string;

@@ -54,7 +54,7 @@ export class FinanceService {
       }
     }
     if (invalidFields.length) {
-      throw new BadRequestException(`Referências inválidas: ${invalidFields.join(', ')}.`);
+      throw new BadRequestException('Selecione registros válidos da sua conta.');
     }
   }
 

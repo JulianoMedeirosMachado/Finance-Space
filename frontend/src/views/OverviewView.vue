@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '../i18n';
+
 import { computed } from 'vue';
 import {
   ArrowUpRight,
@@ -29,60 +31,66 @@ const colors = ['#48cfa4', '#7d8ff0', '#eab778', '#c58bf0', '#77b9e5'];
 <template>
   <div class="page-heading">
     <div>
-      <span class="eyebrow">SEU DINHEIRO, COM PERSPECTIVA</span>
-      <h1>Olá, {{ auth.user?.name.split(' ')[0] }}<span class="greeting-dot">.</span></h1>
-      <p>Aqui está o panorama das suas finanças em {{ monthLabel(finance.month) }}.</p>
+      <span class="eyebrow">{{ t('SEU DINHEIRO, COM PERSPECTIVA') }}</span>
+      <h1>
+        {{ t('Olá,') }} {{ auth.user?.name.split(' ')[0] }}<span class="greeting-dot">.</span>
+      </h1>
+      <p>{{ t('Aqui está o panorama das suas finanças em') }} {{ monthLabel(finance.month) }}.</p>
     </div>
     <div class="page-actions">
       <button
         class="button secondary"
-        :aria-label="privacy.hidden ? 'Mostrar valores do painel' : 'Ocultar valores do painel'"
+        :aria-label="
+          privacy.hidden ? t('Mostrar valores do painel') : t('Ocultar valores do painel')
+        "
         :aria-pressed="privacy.hidden"
         @click="privacy.toggle"
       >
         <Eye v-if="privacy.hidden" :size="18" /><EyeOff v-else :size="18" />{{
-          privacy.hidden ? 'Mostrar valores' : 'Ocultar valores'
+          privacy.hidden ? t('Mostrar valores') : t('Ocultar valores')
         }}</button
       ><RouterLink class="button primary" to="/transactions"
-        ><Plus :size="18" />Novo lançamento</RouterLink
+        ><Plus :size="18" />{{ t('Novo lançamento') }}</RouterLink
       >
     </div>
   </div>
   <div v-if="!finance.records.length && !finance.loading" class="welcome-banner">
     <div class="welcome-icon"><Sparkles :size="25" /></div>
     <div>
-      <h3>Seu próximo capítulo começa aqui.</h3>
-      <p>Cadastre suas contas, organize seus lançamentos e comece a planejar suas metas.</p>
+      <h3>{{ t('Seu próximo capítulo começa aqui.') }}</h3>
+      <p>
+        {{ t('Cadastre suas contas, organize seus lançamentos e comece a planejar suas metas.') }}
+      </p>
     </div>
     <RouterLink class="button secondary" to="/accounts"
-      ><Plus :size="16" />Adicionar conta</RouterLink
+      ><Plus :size="16" />{{ t('Adicionar conta') }}</RouterLink
     >
   </div>
   <template v-if="summary"
     ><div class="stats-grid">
       <StatCard
         :masked="privacy.hidden"
-        label="Receitas previstas"
+        :label="t('Receitas previstas')"
         :value="summary.income"
-        detail="Entradas planejadas para o mês"
+        :detail="t('Entradas planejadas para o mês')"
         tone="green"
       /><StatCard
         :masked="privacy.hidden"
-        label="Despesas e investimentos"
+        :label="t('Despesas e investimentos')"
         :value="summary.expenses + summary.investments"
-        detail="Recorrentes, parcelas e avulsos"
+        :detail="t('Recorrentes, parcelas e avulsos')"
         tone="orange"
       /><StatCard
         :masked="privacy.hidden"
-        label="Acertos previstos"
+        :label="t('Acertos previstos')"
         :value="summary.reimbursements"
-        detail="Participação de outras pessoas"
+        :detail="t('Participação de outras pessoas')"
         tone="purple"
       /><StatCard
         :masked="privacy.hidden"
-        label="Saldo livre previsto"
+        :label="t('Saldo livre previsto')"
         :value="summary.freeBalance"
-        detail="Receitas + acertos − saídas"
+        :detail="t('Receitas + acertos − saídas')"
         :tone="!privacy.hidden && summary.freeBalance < 0 ? 'red' : 'highlight'"
       />
     </div>
@@ -90,29 +98,34 @@ const colors = ['#48cfa4', '#7d8ff0', '#eab778', '#c58bf0', '#77b9e5'];
       <section class="panel chart-panel">
         <div class="panel-heading">
           <div>
-            <h2>Seu dinheiro ao longo do tempo</h2>
-            <p>Dois meses anteriores e próximos três meses.</p>
+            <h2>{{ t('Seu dinheiro ao longo do tempo') }}</h2>
+            <p>{{ t('Dois meses anteriores e próximos três meses.') }}</p>
           </div>
           <ArrowUpRight :size="20" class="muted" />
         </div>
         <TrendChart v-if="!privacy.hidden" :items="summary.trend" />
         <div v-else class="private-chart">
           <EyeOff :size="27" />
-          <p>Seus valores estão ocultos.</p>
-          <button class="text-button" @click="privacy.toggle">Mostrar o comparativo</button>
+          <p>{{ t('Seus valores estão ocultos.') }}</p>
+          <button class="text-button" @click="privacy.toggle">
+            {{ t('Mostrar o comparativo') }}
+          </button>
         </div>
       </section>
       <section class="panel category-panel">
         <div class="panel-heading">
           <div>
-            <h2>Para onde vai seu dinheiro</h2>
-            <p>Despesas por categoria neste mês.</p>
+            <h2>{{ t('Para onde vai seu dinheiro') }}</h2>
+            <p>{{ t('Despesas por categoria neste mês.') }}</p>
           </div>
         </div>
         <div v-if="categories.length" class="category-list">
           <div v-for="(category, index) in categories" :key="category.name" class="category-item">
             <div>
-              <span><i :style="{ background: colors[index] }" />{{ category.name }}</span
+              <span
+                ><i :style="{ background: colors[index] }" />{{
+                  category.uncategorized ? t('Sem categoria') : category.name
+                }}</span
               ><strong>{{ privacy.formatAmount(category.amount) }}</strong>
             </div>
             <div class="category-track">
@@ -128,7 +141,7 @@ const colors = ['#48cfa4', '#7d8ff0', '#eab778', '#c58bf0', '#77b9e5'];
           </div>
         </div>
         <div v-else class="empty-state compact">
-          <p>Suas categorias aparecerão aqui ao cadastrar despesas.</p>
+          <p>{{ t('Suas categorias aparecerão aqui ao cadastrar despesas.') }}</p>
         </div>
       </section>
     </div>
@@ -136,11 +149,11 @@ const colors = ['#48cfa4', '#7d8ff0', '#eab778', '#c58bf0', '#77b9e5'];
       <section class="panel">
         <div class="panel-heading">
           <div>
-            <h2><CreditCard :size="18" />Seus cartões</h2>
-            <p>Um olhar sobre as faturas do mês.</p>
+            <h2><CreditCard :size="18" />{{ t('Seus cartões') }}</h2>
+            <p>{{ t('Um olhar sobre as faturas do mês.') }}</p>
           </div>
           <RouterLink class="text-button" to="/cards"
-            >Ver todos <ArrowRight :size="15"
+            >{{ t('Ver todos') }} <ArrowRight :size="15"
           /></RouterLink>
         </div>
         <div v-if="summary.cards.length" class="mini-card-list">
@@ -151,28 +164,32 @@ const colors = ['#48cfa4', '#7d8ff0', '#eab778', '#c58bf0', '#77b9e5'];
             <div>
               <strong>{{ card.name }}</strong
               ><small>{{
-                card.dueDay ? `Vencimento dia ${card.dueDay}` : 'Vencimento não informado'
+                card.dueDay
+                  ? t('Vencimento dia {day}', { day: card.dueDay })
+                  : t('Vencimento não informado')
               }}</small>
             </div>
             <div class="align-right">
               <strong>{{ privacy.formatAmount(card.reported ?? card.predicted) }}</strong
               ><small>{{
-                card.reported === undefined ? 'Previsto' : 'Informado pelo banco'
+                card.reported === undefined ? t('Previsto') : t('Informado pelo banco')
               }}</small>
             </div>
           </div>
         </div>
         <div v-else class="empty-state compact">
-          <p>Cadastre um cartão para acompanhar suas faturas.</p>
+          <p>{{ t('Cadastre um cartão para acompanhar suas faturas.') }}</p>
         </div>
       </section>
       <section class="panel">
         <div class="panel-heading">
           <div>
-            <h2><CalendarDays :size="18" />No seu radar</h2>
-            <p>Próximos compromissos previstos.</p>
+            <h2><CalendarDays :size="18" />{{ t('No seu radar') }}</h2>
+            <p>{{ t('Próximos compromissos previstos.') }}</p>
           </div>
-          <RouterLink class="text-button" to="/month">Meu mês <ArrowRight :size="15" /></RouterLink>
+          <RouterLink class="text-button" to="/month"
+            >{{ t('Meu mês') }} <ArrowRight :size="15"
+          /></RouterLink>
         </div>
         <div v-if="summary.pending.length" class="upcoming-list">
           <div v-for="entry in summary.pending.slice(0, 4)" :key="entry.id" class="upcoming-row">
@@ -188,17 +205,20 @@ const colors = ['#48cfa4', '#7d8ff0', '#eab778', '#c58bf0', '#77b9e5'];
           </div>
         </div>
         <div v-else class="empty-state compact">
-          <p>Nenhum compromisso previsto para este mês.</p>
+          <p>{{ t('Nenhum compromisso previsto para este mês.') }}</p>
         </div>
       </section>
     </div>
     <div class="insight-strip">
       <Sparkles :size="19" />
       <p>
-        Os valores previstos ajudam a planejar. Confira realizações e saldos bancários para
-        acompanhar o que já aconteceu.
+        {{
+          t(
+            'Os valores previstos ajudam a planejar. Confira realizações e saldos bancários para acompanhar o que já aconteceu.',
+          )
+        }}
       </p>
-      <RouterLink to="/reports" class="text-button">Explorar relatórios →</RouterLink>
+      <RouterLink to="/reports" class="text-button">{{ t('Explorar relatórios →') }}</RouterLink>
     </div>
   </template>
 </template>

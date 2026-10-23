@@ -1,6 +1,6 @@
 # Finance Space
 
-Personal finance application built with Vue 3, TypeScript, Pinia, Vite, NestJS and PostgreSQL. The interface is in Brazilian Portuguese and preserves the project's light/dark visual identity. Source names and comments are in English.
+Personal finance application built with Vue 3, TypeScript, Pinia, Vite, NestJS and PostgreSQL. The interface supports Brazilian Portuguese and English and preserves the project's light/dark visual identity. Source names and comments are in English.
 
 ## Run locally
 
@@ -30,6 +30,11 @@ For optional settings, copy `backend/.env.example` to `backend/.env` and edit it
 - Savings goals with a target amount, optional monthly contribution plan/deadline, recorded contributions, progress percentage and contribution history.
 - Responsible people, third-party settlements, categories, historical records, CSV exports and a complete per-account JSON export.
 - Responsive layouts and persisted theme preference.
+- Account language preference (Brazilian Portuguese or English), saved on the server and restored at sign-in. Translated navigation, forms, messages, charts and CSV labels, with locale-aware dates and numbers. Currency remains BRL; user-entered content is never translated.
+
+## Language
+
+Open **Configurações → Idioma da conta** (or **Settings → Account language**) and select **Português (Brasil)** or **English**. The interface updates immediately after saving. The preference belongs to the account, persists across application/computer restarts and is included in encrypted backups. Existing accounts default to Brazilian Portuguese. The sign-in/registration page also has a language selector; signing in restores the account's saved language.
 
 ## Data entry and exports
 

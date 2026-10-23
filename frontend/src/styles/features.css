@@ -212,3 +212,26 @@
     line-height: 1.8;
   }
 }
+.language-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.language-panel label,
+.auth-language {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.language-panel .notice {
+  flex-basis: 100%;
+}
+
+.auth-language {
+  margin-bottom: 1rem;
+}

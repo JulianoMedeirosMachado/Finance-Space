@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t, language } from '../i18n';
+
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ArrowRight, ShieldCheck, Wallet, ChartNoAxesCombined } from 'lucide-vue-next';
@@ -17,12 +19,12 @@ const notice = ref('');
 const busy = ref(false);
 const title = computed(() =>
   isReset.value
-    ? 'Crie uma nova senha'
+    ? t('Crie uma nova senha')
     : mode.value === 'register'
-      ? 'Comece seu novo espaço'
+      ? t('Comece seu novo espaço')
       : mode.value === 'forgot'
-        ? 'Recupere seu acesso'
-        : 'Bom ter você de volta.',
+        ? t('Recupere seu acesso')
+        : t('Bom ter você de volta.'),
 );
 async function submit() {
   busy.value = true;
@@ -53,7 +55,7 @@ async function submit() {
       await router.push('/dashboard');
     }
   } catch (failure) {
-    error.value = failure instanceof Error ? failure.message : 'Não foi possível conectar.';
+    error.value = failure instanceof Error ? failure.message : t('Não foi possível conectar.');
   } finally {
     busy.value = false;
   }
@@ -68,56 +70,78 @@ async function submit() {
         >
       </div>
       <div>
-        <span class="eyebrow">MAIS CLAREZA, MAIS TRANQUILIDADE</span>
-        <h1>Um espaço para<br />seu próximo<br /><em>passo.</em></h1>
-        <p>Seu mês, seus planos e cada detalhe das suas finanças. Tudo conectado em um só lugar.</p>
+        <span class="eyebrow">{{ t('MAIS CLAREZA, MAIS TRANQUILIDADE') }}</span>
+        <h1>
+          {{ t('Um espaço para') }}<br />{{ t('seu próximo') }}<br /><em>{{ t('passo.') }}</em>
+        </h1>
+        <p>
+          {{
+            t(
+              'Seu mês, seus planos e cada detalhe das suas finanças. Tudo conectado em um só lugar.',
+            )
+          }}
+        </p>
         <div class="auth-features">
-          <span><Wallet :size="18" /> Controle que acompanha você</span
-          ><span><ChartNoAxesCombined :size="18" /> Uma visão clara do que vem pela frente</span
-          ><span><ShieldCheck :size="18" /> Seus dados salvos na sua conta</span>
+          <span><Wallet :size="18" /> {{ t('Controle que acompanha você') }}</span
+          ><span
+            ><ChartNoAxesCombined :size="18" />
+            {{ t('Uma visão clara do que vem pela frente') }}</span
+          ><span><ShieldCheck :size="18" /> {{ t('Seus dados salvos na sua conta') }}</span>
         </div>
       </div>
-      <small>Finance Space · Finanças com perspectiva.</small>
+      <small>{{ t('Finance Space · Finanças com perspectiva.') }}</small>
     </section>
     <section class="auth-form-section">
       <form class="auth-form" @submit.prevent="submit">
-        <span class="eyebrow">SEU ESPAÇO FINANCEIRO</span>
+        <label class="auth-language"
+          >{{ t('Idioma') }}
+          <select v-model="language">
+            <option value="pt-BR">Português (Brasil)</option>
+            <option value="en-US">English</option>
+          </select>
+        </label>
+        <span class="eyebrow">{{ t('SEU ESPAÇO FINANCEIRO') }}</span>
         <h2>{{ title }}</h2>
         <p>
           {{
             mode === 'register'
-              ? 'Crie sua conta para começar a organizar suas finanças.'
+              ? t('Crie sua conta para começar a organizar suas finanças.')
               : mode === 'forgot'
-                ? 'Enviaremos um link para redefinir sua senha.'
-                : 'Entre na sua conta e veja como está seu mês.'
+                ? t('Enviaremos um link para redefinir sua senha.')
+                : t('Entre na sua conta e veja como está seu mês.')
           }}
         </p>
         <div v-if="error" role="alert" class="notice error">{{ error }}</div>
         <div v-if="notice" role="status" class="notice success">{{ notice }}</div>
         <label v-if="mode === 'register' && !isReset"
-          >Seu nome<input
+          >{{ t('Seu nome')
+          }}<input
             v-model="name"
             required
             minlength="2"
             maxlength="80"
             autocomplete="name"
-            placeholder="Como podemos chamar você?" /></label
+            :placeholder="t('Como podemos chamar você?')" /></label
         ><label v-if="!isReset"
-          >E-mail<input
+          >{{ t('E-mail')
+          }}<input
             v-model="email"
             required
             type="email"
             autocomplete="email"
-            placeholder="voce@exemplo.com" /></label
+            :placeholder="t('voce@exemplo.com')" /></label
         ><label v-if="mode !== 'forgot' || isReset"
-          >Senha<input
+          >{{ t('Senha')
+          }}<input
             v-model="password"
             required
             type="password"
             :minlength="mode === 'register' || isReset ? 10 : 1"
             maxlength="128"
             :autocomplete="mode === 'login' && !isReset ? 'current-password' : 'new-password'"
-            :placeholder="mode === 'register' ? 'Pelo menos 10 caracteres' : 'Sua senha'" /></label
+            :placeholder="
+              mode === 'register' ? t('Pelo menos 10 caracteres') : t('Sua senha')
+            " /></label
         ><button
           v-if="mode === 'login' && !isReset"
           class="text-button forgot-link"
@@ -127,22 +151,22 @@ async function submit() {
             error = '';
           "
         >
-          Esqueci minha senha</button
+          {{ t('Esqueci minha senha') }}</button
         ><button class="button primary auth-submit" :disabled="busy">
           {{
             busy
-              ? 'Aguarde…'
+              ? t('Aguarde…')
               : isReset
-                ? 'Salvar nova senha'
+                ? t('Salvar nova senha')
                 : mode === 'register'
-                  ? 'Criar minha conta'
+                  ? t('Criar minha conta')
                   : mode === 'forgot'
-                    ? 'Enviar instruções'
-                    : 'Entrar na minha conta'
+                    ? t('Enviar instruções')
+                    : t('Entrar na minha conta')
           }}<ArrowRight :size="18" />
         </button>
         <p v-if="!isReset" class="auth-switch">
-          {{ mode === 'login' ? 'Ainda não tem uma conta?' : 'Já tem uma conta?' }}
+          {{ mode === 'login' ? t('Ainda não tem uma conta?') : t('Já tem uma conta?') }}
           <button
             class="text-button"
             type="button"
@@ -152,11 +176,11 @@ async function submit() {
               notice = '';
             "
           >
-            {{ mode === 'login' ? 'Criar conta' : 'Entrar' }}
+            {{ mode === 'login' ? t('Criar conta') : t('Entrar') }}
           </button>
         </p>
         <p class="auth-footnote">
-          <ShieldCheck :size="15" /> Suas finanças ficam vinculadas à sua conta.
+          <ShieldCheck :size="15" /> {{ t('Suas finanças ficam vinculadas à sua conta.') }}
         </p>
       </form>
     </section>

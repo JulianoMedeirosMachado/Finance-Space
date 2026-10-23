@@ -12,7 +12,9 @@ Schema creation is additive and idempotent at startup. Ordered changes are recor
 
 ## Money and time
 
-Amounts are integer BRL cents throughout the API and database records. The UI converts decimal entry to integer cents and formats values with `Intl.NumberFormat('pt-BR')`. No floating point arithmetic is used to sum money.
+Amounts are integer BRL cents throughout the API and database records. The UI converts decimal entry to integer cents and formats values with `Intl.NumberFormat` using the account's language and BRL currency. No floating point arithmetic is used to sum money. Language selection does not convert currency.
+
+The `users.language` preference accepts only `pt-BR` and `en-US`. Migration 3 adds it without changing financial records. Authenticated preference updates derive the owner from the session; callers cannot choose another user ID. The frontend restores the language from the session response and uses reactive translation catalogs in `frontend/src/i18n`. API clients send `Accept-Language` for localized errors and recovery notices; recovery emails use the account's saved preference. User-entered text and archived source values are not translated. Backup restoration defaults older accounts without a language field to `pt-BR`.
 
 `month` is an explicit `YYYY-MM` competence. `date` is a calendar date, distinct from the competence. Account cash balances use realized movement dates; invoice grouping and planning use competence. Account opening balances apply from the first day of the opening competence. Enter that opening balance before movements in that month to avoid counting movements already included in the opening balance.
 

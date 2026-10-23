@@ -28,11 +28,24 @@ test('legacy schema upgrades preserve data and goals and contributions survive s
     "ALTER TABLE records DROP CONSTRAINT records_kind_check, ADD CONSTRAINT records_kind_check CHECK(kind IN ('accounts','cards','categories','people','transactions','recurring','installments','invoices','income','benefits','settlements','history'))",
   );
   await original.query('DELETE FROM schema_migrations WHERE version=1');
+  await original.query('ALTER TABLE users DROP COLUMN language');
+  await original.query('DELETE FROM schema_migrations WHERE version=3');
   const before = await finance.list(user.id);
   await original.onModuleDestroy();
   const upgraded = new DatabaseService();
   await upgraded.onModuleInit();
   const upgradedFinance = new FinanceService(upgraded);
+  const upgradedAuth = new AuthService(upgraded);
+  assert.equal(
+    (
+      await upgradedAuth.findUser(
+        (await upgradedAuth.login('migration@example.test', 'test-password-123')).token,
+      )
+    ).language,
+    'pt-BR',
+  );
+  const session = await upgradedAuth.login('migration@example.test', 'test-password-123');
+  await upgradedAuth.updateLanguage(session.token, 'en-US');
   assert.deepEqual(await upgradedFinance.list(user.id), before);
   const goal = await upgradedFinance.save(user.id, 'goals', {
     name: 'GPU',
@@ -52,7 +65,8 @@ test('legacy schema upgrades preserve data and goals and contributions survive s
   assert.equal(summary.goals[0].savedAmount, 10000);
   assert.equal(summary.goals[0].progress, 2);
   assert.equal(summary.benefits.balance, 67200);
-  assert.equal((await restarted.query('SELECT version FROM schema_migrations')).length, 2);
+  assert.equal((await restarted.query('SELECT version FROM schema_migrations')).length, 3);
+  assert.equal((await new AuthService(restarted).findUser(session.token)).language, 'en-US');
   await restarted.onModuleDestroy();
   await rm(directory, { recursive: true });
 });

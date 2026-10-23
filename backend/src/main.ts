@@ -11,6 +11,7 @@ import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import { AppModule } from './app.module';
 import { ApiErrorFilter } from './common/api-error.filter';
+import { requestLanguage, translateMessage } from './common/language';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
@@ -42,7 +43,12 @@ async function bootstrap() {
       limit: 240,
       standardHeaders: 'draft-8',
       legacyHeaders: false,
-      message: { message: 'Muitas solicitações. Aguarde um minuto.' },
+      message: (request: Request) => ({
+        message: translateMessage(
+          'Muitas solicitações. Aguarde um minuto.',
+          requestLanguage(request),
+        ),
+      }),
     }),
   );
   app.use(
@@ -52,7 +58,12 @@ async function bootstrap() {
       limit: 60,
       standardHeaders: 'draft-8',
       legacyHeaders: false,
-      message: { message: 'Muitas tentativas. Aguarde 15 minutos.' },
+      message: (request: Request) => ({
+        message: translateMessage(
+          'Muitas tentativas. Aguarde 15 minutos.',
+          requestLanguage(request),
+        ),
+      }),
     }),
   );
   app.use((request: Request, response: Response, next: NextFunction) => {
@@ -60,7 +71,9 @@ async function bootstrap() {
     const origin = request.headers.origin;
     const site = request.headers['sec-fetch-site'];
     if (mutation && ((origin && !origins.includes(origin)) || site === 'cross-site')) {
-      response.status(403).json({ message: 'Origem da solicitação não permitida.' });
+      response.status(403).json({
+        message: translateMessage('Origem da solicitação não permitida.', requestLanguage(request)),
+      });
     } else {
       next();
     }

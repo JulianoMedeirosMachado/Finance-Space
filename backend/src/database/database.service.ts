@@ -135,6 +135,15 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy, QueryExec
         await applyRowSecurity(database);
         await database.query('INSERT INTO schema_migrations(version) VALUES(2)');
       }
+      const localized = await database.query(
+        'SELECT version FROM schema_migrations WHERE version=3',
+      );
+      if (localized.length === 0) {
+        await database.query(
+          "ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'pt-BR' CHECK (language IN ('pt-BR','en-US'))",
+        );
+        await database.query('INSERT INTO schema_migrations(version) VALUES(3)');
+      }
     });
   }
 

@@ -41,7 +41,11 @@ function scan(path, buffer) {
         /^postgres(?:ql)?:\/\/user:password@localhost(?::\d+)?\//.test(match[0]);
       const fixture =
         rule === 'literal-secret' && fixturePath.test(path) && fixturePasswords.has(match[1]);
-      if (!placeholder && !fixture) {
+      const translatedFieldLabel =
+        rule === 'literal-secret' &&
+        path === 'backend/src/common/validation-message.ts' &&
+        match[1] === 'Password';
+      if (!placeholder && !fixture && !translatedFieldLabel) {
         findings.push({ path, rule, line: content.slice(0, match.index).split('\n').length });
       }
     }

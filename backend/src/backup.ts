@@ -68,8 +68,15 @@ async function run() {
         if (Number(count[0].count) === 0) {
           for (const user of backup.users) {
             await transaction.query(
-              'INSERT INTO users(id,email,name,password_hash,created_at) VALUES($1,$2,$3,$4,$5)',
-              [user.id, user.email, user.name, user.password_hash, user.created_at],
+              'INSERT INTO users(id,email,name,password_hash,created_at,language) VALUES($1,$2,$3,$4,$5,$6)',
+              [
+                user.id,
+                user.email,
+                user.name,
+                user.password_hash,
+                user.created_at,
+                z.enum(['pt-BR', 'en-US']).parse(user.language ?? 'pt-BR'),
+              ],
             );
           }
           for (const record of backup.records) {

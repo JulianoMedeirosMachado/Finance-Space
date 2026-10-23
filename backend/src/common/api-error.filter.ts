@@ -1,17 +1,19 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { validationMessage } from './validation-message';
+import { requestLanguage, translateMessage } from './language';
 
 @Catch()
 export class ApiErrorFilter implements ExceptionFilter {
   catch(error: unknown, host: ArgumentsHost) {
     const response = host.switchToHttp().getResponse<Response>();
+    const language = requestLanguage(host.switchToHttp().getRequest<Request>());
     let status = 500;
     let message = 'Não foi possível concluir a operação.';
     if (error instanceof ZodError) {
       status = 400;
-      message = validationMessage(error);
+      message = validationMessage(error, language);
     } else if (error instanceof HttpException) {
       status = error.getStatus();
       message = error.message;
@@ -28,6 +30,8 @@ export class ApiErrorFilter implements ExceptionFilter {
     } else {
       Logger.error(error instanceof Error ? error.stack : 'Unexpected error', 'API');
     }
-    response.status(status).json({ message });
+    response
+      .status(status)
+      .json({ message: error instanceof ZodError ? message : translateMessage(message, language) });
   }
 }

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t, language } from '../i18n';
+
 import { useFinanceStore } from '../stores/finance';
 import { money, monthLabel } from '../utils/format';
 import TrendChart from '../components/TrendChart.vue';
@@ -8,35 +10,37 @@ const finance = useFinanceStore();
 <template>
   <div class="page-heading">
     <div>
-      <span class="eyebrow">ENTENDA SEUS NÚMEROS</span>
-      <h1>Relatórios</h1>
-      <p>Compare períodos e enxergue os compromissos que vêm pela frente.</p>
+      <span class="eyebrow">{{ t('ENTENDA SEUS NÚMEROS') }}</span>
+      <h1>{{ t('Relatórios') }}</h1>
+      <p>{{ t('Compare períodos e enxergue os compromissos que vêm pela frente.') }}</p>
     </div>
-    <a class="button secondary" href="/api/finance/export" download>Exportar todos os dados</a>
+    <a class="button secondary" href="/api/finance/export" download>{{
+      t('Exportar todos os dados')
+    }}</a>
   </div>
   <template v-if="finance.dashboard"
     ><div class="stats-grid three">
       <StatCard
-        label="Receitas realizadas"
+        :label="t('Receitas realizadas')"
         :value="finance.dashboard.realizedIncome"
-        detail="Receitas marcadas como lançadas ou pagas"
+        :detail="t('Receitas marcadas como lançadas ou pagas')"
         tone="green"
       /><StatCard
-        label="Investimentos previstos"
+        :label="t('Investimentos previstos')"
         :value="finance.dashboard.investments"
-        detail="Aportes da competência selecionada"
+        :detail="t('Aportes da competência selecionada')"
         tone="purple"
       /><StatCard
-        label="Saldo livre previsto"
+        :label="t('Saldo livre previsto')"
         :value="finance.dashboard.freeBalance"
-        detail="Inclui acertos previstos com terceiros"
+        :detail="t('Inclui acertos previstos com terceiros')"
       />
     </div>
     <section class="panel chart-panel">
       <div class="panel-heading">
         <div>
-          <h2>Comparativo de competências</h2>
-          <p>Valores previstos com realizações substituindo as respectivas previsões.</p>
+          <h2>{{ t('Comparativo de competências') }}</h2>
+          <p>{{ t('Valores previstos com realizações substituindo as respectivas previsões.') }}</p>
         </div>
       </div>
       <TrendChart :items="finance.dashboard.trend" />
@@ -44,11 +48,11 @@ const finance = useFinanceStore();
         <table>
           <thead>
             <tr>
-              <th>Competência</th>
-              <th>Receitas</th>
-              <th>Despesas</th>
-              <th>Investimentos</th>
-              <th>Saldo livre previsto</th>
+              <th>{{ t('Competência') }}</th>
+              <th>{{ t('Receitas') }}</th>
+              <th>{{ t('Despesas') }}</th>
+              <th>{{ t('Investimentos') }}</th>
+              <th>{{ t('Saldo livre previsto') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -66,7 +70,7 @@ const finance = useFinanceStore();
     <section class="panel">
       <div class="panel-heading">
         <div>
-          <h2>Despesas por categoria</h2>
+          <h2>{{ t('Despesas por categoria') }}</h2>
           <p>{{ monthLabel(finance.month) }}</p>
         </div>
       </div>
@@ -74,19 +78,19 @@ const finance = useFinanceStore();
         <table>
           <thead>
             <tr>
-              <th>Categoria</th>
-              <th>Valor</th>
-              <th>Participação nas despesas</th>
+              <th>{{ t('Categoria') }}</th>
+              <th>{{ t('Valor') }}</th>
+              <th>{{ t('Participação nas despesas') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="item in finance.dashboard.categories" :key="item.name">
-              <td>{{ item.name }}</td>
+              <td>{{ item.uncategorized ? t('Sem categoria') : item.name }}</td>
               <td>{{ money(item.amount) }}</td>
               <td>
                 {{
                   finance.dashboard.expenses
-                    ? `${((item.amount / finance.dashboard.expenses) * 100).toFixed(1)}%`
+                    ? `${((item.amount / finance.dashboard.expenses) * 100).toLocaleString(language, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
                     : '—'
                 }}
               </td>
@@ -94,7 +98,7 @@ const finance = useFinanceStore();
           </tbody>
         </table>
         <div v-if="!finance.dashboard.categories.length" class="empty-state compact">
-          <p>Adicione despesas para visualizar a distribuição por categoria.</p>
+          <p>{{ t('Adicione despesas para visualizar a distribuição por categoria.') }}</p>
         </div>
       </div>
     </section></template

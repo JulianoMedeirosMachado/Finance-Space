@@ -149,8 +149,52 @@ try {
   assert.match(csv, /"'\t=HYPERLINK/);
   assert.match(csv, /"'  \+formula"/);
   assert.match(csv, /"Normal text"/);
+  const { setLanguage, language, t } = await server.ssrLoadModule('/src/i18n/index.ts');
+  const { resources } = await server.ssrLoadModule('/src/config/resources.ts');
+  const { money, dateLabel, monthLabel } = await server.ssrLoadModule('/src/utils/format.ts');
+  const { default: Settings } = await server.ssrLoadModule('/src/views/SettingsView.vue');
+  const { default: Auth } = await server.ssrLoadModule('/src/views/AuthView.vue');
+  const { default: Month } = await server.ssrLoadModule('/src/views/MonthView.vue');
+  const { default: Reports } = await server.ssrLoadModule('/src/views/ReportsView.vue');
+  const { default: RecordForm } = await server.ssrLoadModule('/src/components/RecordForm.vue');
+  assert.equal(resources.value.accounts.title, 'Contas bancárias');
+  setLanguage('en-US');
+  assert.equal(resources.value.accounts.title, 'Bank accounts');
+  assert.equal(
+    resources.value.transactions.fields.find((field) => field.key === 'nature').options[0].label,
+    'Expense',
+  );
+  assert.equal(language.value, 'en-US');
+  assert.match(money(123456), /1,234\.56/);
+  assert.match(money(123456), /R\$/);
+  assert.equal(dateLabel('2026-10-22'), '10/22/2026');
+  assert.match(monthLabel('2026-10'), /Oct/);
+  assert.equal(t('Editar meta {name}', { name: '<img>' }), 'Edit goal <img>');
+  assert.equal(t('{count} aporte registrado', { count: 1 }), '1 contribution recorded');
+  assert.equal(t('{count} aportes registrados', { count: 2 }), '2 contributions recorded');
+  for (const component of [Overview, Goals, Settings, Auth, Month, Reports]) {
+    const translated = (await render(component)).replaceAll('Português (Brasil)', '');
+    assert.doesNotMatch(
+      translated,
+      /[çãõáéíóúêô]/i,
+      `Untranslated interface in ${component.__file}`,
+    );
+  }
+  for (const kind of Object.keys(resources.value)) {
+    const translatedPage = await render(ResourceView, { kind });
+    const translatedForm = await render(RecordForm, { kind });
+    assert.doesNotMatch(translatedPage, /[çãõáéíóúêô]/i, `Untranslated page: ${kind}`);
+    assert.doesNotMatch(translatedForm, /[çãõáéíóúêô]/i, `Untranslated form: ${kind}`);
+  }
+  const translatedGoal = await render(Goals);
+  assert.match(translatedGoal, /&lt;img/);
+  assert.doesNotMatch(translatedGoal, /<img src=x|<script>alert/);
+  setLanguage('pt-BR');
+  assert.equal(resources.value.accounts.title, 'Contas bancárias');
+  assert.equal(dateLabel('2026-10-22'), '22/10/2026');
+  assert.match(await render(Settings), /Idioma da conta/);
   console.log(
-    'Component checks passed: privacy, goals, allowance reconciliation, escaped XSS payloads and CSV formula protection.',
+    'Component checks passed: privacy, goals, allowance reconciliation, escaped XSS payloads, CSV protection and Portuguese/English pages and forms.',
   );
 } finally {
   await server.close();

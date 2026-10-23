@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { t } from '../i18n';
+
+import { computed, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import {
   LayoutDashboard,
@@ -34,21 +36,21 @@ const route = useRoute();
 const router = useRouter();
 const mobileOpen = ref(false);
 const dark = ref(localStorage.getItem('finance-theme') !== 'light');
-const links = [
-  { path: '/dashboard', label: 'Visão geral', icon: LayoutDashboard },
-  { path: '/month', label: 'Meu mês', icon: CalendarDays },
-  { path: '/transactions', label: 'Lançamentos', icon: ArrowLeftRight },
-  { path: '/recurring', label: 'Recorrentes', icon: Repeat2 },
-  { path: '/installments', label: 'Parcelamentos', icon: Layers },
-  { path: '/income', label: 'Receitas', icon: Wallet },
-  { path: '/cards', label: 'Cartões', icon: CreditCard },
-  { path: '/invoices', label: 'Faturas', icon: FileText },
-  { path: '/accounts', label: 'Contas bancárias', icon: Landmark },
-  { path: '/benefits', label: 'Vale-alimentação', icon: Utensils },
-  { path: '/settlements', label: 'Acertos', icon: Users },
-  { path: '/goals', label: 'Metas', icon: Target },
-  { path: '/reports', label: 'Relatórios', icon: ChartNoAxesCombined },
-];
+const links = computed(() => [
+  { path: '/dashboard', label: t('Visão geral'), icon: LayoutDashboard },
+  { path: '/month', label: t('Meu mês'), icon: CalendarDays },
+  { path: '/transactions', label: t('Lançamentos'), icon: ArrowLeftRight },
+  { path: '/recurring', label: t('Recorrentes'), icon: Repeat2 },
+  { path: '/installments', label: t('Parcelamentos'), icon: Layers },
+  { path: '/income', label: t('Receitas'), icon: Wallet },
+  { path: '/cards', label: t('Cartões'), icon: CreditCard },
+  { path: '/invoices', label: t('Faturas'), icon: FileText },
+  { path: '/accounts', label: t('Contas bancárias'), icon: Landmark },
+  { path: '/benefits', label: t('Vale-alimentação'), icon: Utensils },
+  { path: '/settlements', label: t('Acertos'), icon: Users },
+  { path: '/goals', label: t('Metas'), icon: Target },
+  { path: '/reports', label: t('Relatórios'), icon: ChartNoAxesCombined },
+]);
 watch(
   dark,
   (value) => {
@@ -94,7 +96,7 @@ async function logout() {
     finance.reset();
     await router.push('/login');
   } catch (error) {
-    finance.error = error instanceof Error ? error.message : 'Não foi possível sair.';
+    finance.error = error instanceof Error ? error.message : t('Não foi possível sair.');
   }
 }
 </script>
@@ -104,28 +106,34 @@ async function logout() {
     <button
       v-if="mobileOpen"
       class="sidebar-backdrop"
-      aria-label="Fechar menu"
+      :aria-label="t('Fechar menu')"
       @click="mobileOpen = false"
     />
     <aside class="sidebar" :class="{ open: mobileOpen }">
       <RouterLink class="brand" to="/dashboard"
         ><img src="../assets/logo-final-white.png" alt="Finance Space" /><span
           >finance<span class="brand-accent">space</span
-          ><small>Seu dinheiro. Seu espaço.</small></span
+          ><small>{{ t('Seu dinheiro. Seu espaço.') }}</small></span
         ></RouterLink
       >
-      <p class="nav-heading">SEU ESPAÇO</p>
-      <nav aria-label="Navegação principal">
+      <p class="nav-heading">{{ t('SEU ESPAÇO') }}</p>
+      <nav :aria-label="t('Navegação principal')">
         <RouterLink v-for="link in links" :key="link.path" :to="link.path"
           ><component :is="link.icon" :size="18" /><span>{{ link.label }}</span></RouterLink
         >
       </nav>
       <div class="sidebar-bottom">
-        <RouterLink to="/settings"><Settings :size="18" /> Configurações</RouterLink>
+        <RouterLink to="/settings"><Settings :size="18" /> {{ t('Configurações') }}</RouterLink>
         <div class="profile">
           <span class="avatar">{{ auth.user.name.slice(0, 1).toUpperCase() }}</span
-          ><span class="profile-name">{{ auth.user.name }}<small>Minha conta pessoal</small></span
-          ><button class="icon-button" title="Sair" aria-label="Sair da conta" @click="logout">
+          ><span class="profile-name"
+            >{{ auth.user.name }}<small>{{ t('Minha conta pessoal') }}</small></span
+          ><button
+            class="icon-button"
+            :title="t('Sair')"
+            :aria-label="t('Sair da conta')"
+            @click="logout"
+          >
             <LogOut :size="17" />
           </button>
         </div>
@@ -136,7 +144,7 @@ async function logout() {
         <div class="topbar-title">
           <button
             class="icon-button mobile-menu"
-            aria-label="Abrir menu"
+            :aria-label="t('Abrir menu')"
             @click="mobileOpen = true"
           >
             <Menu :size="22" /></button
@@ -144,17 +152,19 @@ async function logout() {
             >Finance Space
             <span class="breadcrumb"
               >/
-              {{ links.find((link) => link.path === route.path)?.label || 'Configurações' }}</span
+              {{
+                links.find((link) => link.path === route.path)?.label || t('Configurações')
+              }}</span
             ></span
           >
         </div>
         <div class="topbar-actions">
           <div class="month-picker">
-            <button class="icon-button" aria-label="Mês anterior" @click="changeMonth(-1)">
+            <button class="icon-button" :aria-label="t('Mês anterior')" @click="changeMonth(-1)">
               <ChevronLeft :size="17" /></button
-            ><input v-model="finance.month" type="month" aria-label="Competência" /><button
+            ><input v-model="finance.month" type="month" :aria-label="t('Competência')" /><button
               class="icon-button"
-              aria-label="Próximo mês"
+              :aria-label="t('Próximo mês')"
               @click="changeMonth(1)"
             >
               <ChevronRight :size="17" />
@@ -162,7 +172,7 @@ async function logout() {
           </div>
           <button
             class="icon-button theme-button"
-            :aria-label="dark ? 'Ativar tema claro' : 'Ativar tema escuro'"
+            :aria-label="dark ? t('Ativar tema claro') : t('Ativar tema escuro')"
             @click="dark = !dark"
           >
             <Sun v-if="dark" :size="20" /><Moon v-else :size="20" />
@@ -171,12 +181,18 @@ async function logout() {
       </header>
       <main class="main-content">
         <div v-if="finance.error" role="alert" class="notice error">
-          {{ finance.error
-          }}<button class="text-button" @click="finance.refresh">Tentar novamente</button>
+          {{ t(finance.error)
+          }}<button class="text-button" @click="finance.refresh">
+            {{ t('Tentar novamente') }}
+          </button>
         </div>
         <div v-if="finance.message" role="status" class="notice success">
-          {{ finance.message
-          }}<button class="icon-button" aria-label="Fechar aviso" @click="finance.message = ''">
+          {{ t(finance.message)
+          }}<button
+            class="icon-button"
+            :aria-label="t('Fechar aviso')"
+            @click="finance.message = ''"
+          >
             <X :size="16" />
           </button>
         </div>
@@ -184,7 +200,7 @@ async function logout() {
           v-if="finance.loading"
           class="loading-line"
           role="status"
-          aria-label="Carregando dados"
+          :aria-label="t('Carregando dados')"
         />
         <RouterView :key="route.path" />
       </main>

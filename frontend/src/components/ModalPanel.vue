@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '../i18n';
+
 import { onMounted, ref } from 'vue';
 import { X } from 'lucide-vue-next';
 defineProps<{ title: string }>();
@@ -15,7 +17,7 @@ onMounted(() => dialog.value?.showModal());
   >
     <div class="dialog-header">
       <h2 id="modal-panel-title">{{ title }}</h2>
-      <button class="icon-button" aria-label="Fechar janela" @click="emit('close')">
+      <button class="icon-button" :aria-label="t('Fechar janela')" @click="emit('close')">
         <X :size="20" />
       </button>
     </div>

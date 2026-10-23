@@ -1,4 +1,6 @@
 import type { ResourceKind } from '../types';
+import { computed } from 'vue';
+import { t } from '../i18n';
 export interface Field {
   key: string;
   label: string;
@@ -63,7 +65,7 @@ const schedule: Field[] = [
   { ...field('day', 'Dia previsto', 'number', true), min: 1, max: 31, default: 1 },
   { ...field('active', 'Ativo', 'checkbox'), default: true },
 ];
-export const resources: Record<ResourceKind, ResourceDefinition> = {
+const definitions: Record<ResourceKind, ResourceDefinition> = {
   accounts: {
     title: 'Contas bancárias',
     singular: 'conta',
@@ -269,3 +271,23 @@ export const resources: Record<ResourceKind, ResourceDefinition> = {
     columns: ['goalId', 'date', 'amount', 'note'],
   },
 };
+
+export const resources = computed(
+  () =>
+    Object.fromEntries(
+      Object.entries(definitions).map(([kind, definition]) => [
+        kind,
+        {
+          ...definition,
+          title: t(definition.title),
+          singular: t(definition.singular),
+          description: t(definition.description),
+          fields: definition.fields.map((field) => ({
+            ...field,
+            label: t(field.label),
+            options: field.options?.map((option) => ({ ...option, label: t(option.label) })),
+          })),
+        },
+      ]),
+    ) as Record<ResourceKind, ResourceDefinition>,
+);

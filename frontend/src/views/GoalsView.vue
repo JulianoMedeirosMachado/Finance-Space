@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t, language } from '../i18n';
+
 import { computed, ref } from 'vue';
 import {
   Target,
@@ -60,7 +62,7 @@ async function confirmDelete() {
       deleting.value = undefined;
     }
   } catch (failure) {
-    error.value = failure instanceof Error ? failure.message : 'Não foi possível excluir.';
+    error.value = failure instanceof Error ? failure.message : t('Não foi possível excluir.');
   } finally {
     busy.value = false;
   }
@@ -70,20 +72,22 @@ async function confirmDelete() {
 <template>
   <div class="page-heading">
     <div>
-      <span class="eyebrow">UM PASSO MAIS PERTO</span>
-      <h1>Metas</h1>
-      <p>Da próxima GPU à viagem dos sonhos: acompanhe o dinheiro que você já separou.</p>
+      <span class="eyebrow">{{ t('UM PASSO MAIS PERTO') }}</span>
+      <h1>{{ t('Metas') }}</h1>
+      <p>
+        {{ t('Da próxima GPU à viagem dos sonhos: acompanhe o dinheiro que você já separou.') }}
+      </p>
     </div>
     <button class="button primary" @click="form = { kind: 'goals' }">
-      <Plus :size="18" />Nova meta
+      <Plus :size="18" />{{ t('Nova meta') }}
     </button>
   </div>
   <div class="goal-toolbar">
-    <p>O aporte mensal é um plano. Registre cada aporte quando separar o valor.</p>
-    <select v-model="filter" aria-label="Filtrar metas">
-      <option value="all">Todas as metas</option>
-      <option value="active">Em andamento</option>
-      <option value="completed">Concluídas</option>
+    <p>{{ t('O aporte mensal é um plano. Registre cada aporte quando separar o valor.') }}</p>
+    <select v-model="filter" :aria-label="t('Filtrar metas')">
+      <option value="all">{{ t('Todas as metas') }}</option>
+      <option value="active">{{ t('Em andamento') }}</option>
+      <option value="completed">{{ t('Concluídas') }}</option>
     </select>
   </div>
   <div v-if="visibleGoals.length" class="goals-grid">
@@ -95,19 +99,19 @@ async function confirmDelete() {
         <div>
           <h2>{{ goal.name }}</h2>
           <span class="badge" :class="goal.completed ? 'paid' : 'planned'">{{
-            goal.completed ? 'Meta alcançada' : 'Em andamento'
+            goal.completed ? t('Meta alcançada') : t('Em andamento')
           }}</span>
         </div>
         <div class="goal-actions">
           <button
             class="icon-button"
-            :aria-label="`Editar meta ${goal.name}`"
+            :aria-label="t('Editar meta {name}', { name: goal.name })"
             @click="editGoal(goal)"
           >
             <Pencil :size="16" /></button
           ><button
             class="icon-button danger-text"
-            :aria-label="`Excluir meta ${goal.name}`"
+            :aria-label="t('Excluir meta {name}', { name: goal.name })"
             @click="requestDelete(goal.id)"
           >
             <Trash2 :size="16" />
@@ -116,84 +120,100 @@ async function confirmDelete() {
       </div>
       <div class="goal-amount">
         <strong>{{ money(goal.savedAmount) }}</strong
-        ><span>de {{ money(goal.targetAmount) }}</span>
+        ><span>{{ t('de') }} {{ money(goal.targetAmount) }}</span>
       </div>
       <div class="goal-progress-heading">
-        <span
-          >{{ goal.contributionCount }} aporte{{
-            goal.contributionCount === 1 ? '' : 's'
-          }}
-          registrado{{ goal.contributionCount === 1 ? '' : 's' }}</span
-        ><strong>{{ goal.progress.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) }}%</strong>
+        <span>{{
+          t(
+            goal.contributionCount === 1
+              ? '{count} aporte registrado'
+              : '{count} aportes registrados',
+            { count: goal.contributionCount },
+          )
+        }}</span
+        ><strong
+          >{{ goal.progress.toLocaleString(language, { maximumFractionDigits: 1 }) }}%</strong
+        >
       </div>
       <progress
         class="goal-progress"
         :value="goal.progress"
         max="100"
-        :aria-label="`Progresso da meta ${goal.name}`"
+        :aria-label="t('Progresso da meta {name}', { name: goal.name })"
       >
         {{ goal.progress }}%
       </progress>
       <p class="goal-remaining">
         {{
           goal.completed
-            ? 'Objetivo alcançado. Cada aporte fez a diferença!'
-            : `Faltam ${money(goal.remainingAmount)} para chegar lá.`
+            ? t('Objetivo alcançado. Cada aporte fez a diferença!')
+            : t('Faltam {amount} para chegar lá.', { amount: money(goal.remainingAmount) })
         }}
       </p>
       <div class="goal-plan">
         <span v-if="goal.monthlyAmount"
-          ><ArrowUpRight :size="15" />{{ money(goal.monthlyAmount) }} por mês</span
-        ><span v-else>Aporte mensal livre</span
+          ><ArrowUpRight :size="15" />{{ money(goal.monthlyAmount) }} {{ t('por mês') }}</span
+        ><span v-else>{{ t('Aporte mensal livre') }}</span
         ><span v-if="goal.deadline"><CalendarDays :size="14" />{{ dateLabel(goal.deadline) }}</span>
       </div>
       <p v-if="goal.estimatedContributions !== null && !goal.completed" class="field-hint">
-        Com o plano atual: aproximadamente {{ goal.estimatedContributions }} aporte{{
-          goal.estimatedContributions === 1 ? '' : 's'
+        {{
+          t(
+            goal.estimatedContributions === 1
+              ? 'Com o plano atual: aproximadamente {count} aporte para completar.'
+              : 'Com o plano atual: aproximadamente {count} aportes para completar.',
+            { count: goal.estimatedContributions },
+          )
         }}
-        para completar.
       </p>
       <div class="goal-card-footer">
         <button class="button primary" @click="addContribution(goal.id)">
-          <Plus :size="16" />Adicionar aporte</button
-        ><button class="text-button" @click="selectedId = goal.id">Ver histórico →</button>
+          <Plus :size="16" />{{ t('Adicionar aporte') }}</button
+        ><button class="text-button" @click="selectedId = goal.id">
+          {{ t('Ver histórico →') }}
+        </button>
       </div>
     </article>
   </div>
   <section v-else class="panel empty-state">
     <Target :size="38" />
-    <h3>{{ goals.length ? 'Nenhuma meta neste filtro' : 'Qual é seu próximo objetivo?' }}</h3>
+    <h3>{{ goals.length ? t('Nenhuma meta neste filtro') : t('Qual é seu próximo objetivo?') }}</h3>
     <p>
       {{
         goals.length
-          ? 'Escolha outro filtro para encontrar suas metas.'
-          : 'Defina um valor, planeje seu aporte mensal e acompanhe o progresso a cada contribuição.'
+          ? t('Escolha outro filtro para encontrar suas metas.')
+          : t(
+              'Defina um valor, planeje seu aporte mensal e acompanhe o progresso a cada contribuição.',
+            )
       }}
     </p>
     <button v-if="!goals.length" class="button primary" @click="form = { kind: 'goals' }">
-      <Plus :size="16" />Criar minha primeira meta
+      <Plus :size="16" />{{ t('Criar minha primeira meta') }}
     </button>
   </section>
   <p class="field-hint">
-    Os aportes acompanham sua meta. Eles não criam nem duplicam lançamentos financeiros; registre as
-    movimentações bancárias na tela Lançamentos.
+    {{
+      t(
+        'Os aportes acompanham sua meta. Eles não criam nem duplicam lançamentos financeiros; registre as movimentações bancárias na tela Lançamentos.',
+      )
+    }}
   </p>
   <ModalPanel
     v-if="selectedGoal && !form && !deleting"
-    :title="`Aportes — ${selectedGoal.name}`"
+    :title="t('Aportes — {name}', { name: selectedGoal.name })"
     @close="selectedId = ''"
     ><div class="goal-history-total">
       <strong>{{ money(selectedGoal.savedAmount) }}</strong
-      ><span>guardados de {{ money(selectedGoal.targetAmount) }}</span>
+      ><span>{{ t('guardados de') }} {{ money(selectedGoal.targetAmount) }}</span>
     </div>
     <div class="table-scroll">
       <table>
         <thead>
           <tr>
-            <th>Data</th>
-            <th>Valor</th>
-            <th>Observação</th>
-            <th>Ações</th>
+            <th>{{ t('Data') }}</th>
+            <th>{{ t('Valor') }}</th>
+            <th>{{ t('Observação') }}</th>
+            <th>{{ t('Ações') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -204,13 +224,13 @@ async function confirmDelete() {
             <td class="actions-cell">
               <button
                 class="icon-button"
-                aria-label="Editar aporte"
+                :aria-label="t('Editar aporte')"
                 @click="form = { kind: 'goalContributions', record }"
               >
                 <Pencil :size="15" /></button
               ><button
                 class="icon-button danger-text"
-                aria-label="Excluir aporte"
+                :aria-label="t('Excluir aporte')"
                 @click="requestDelete(record.id)"
               >
                 <Trash2 :size="15" />
@@ -220,28 +240,34 @@ async function confirmDelete() {
         </tbody>
       </table>
       <div v-if="!contributions.length" class="empty-state compact">
-        <p>Nenhum aporte registrado nesta meta ainda.</p>
+        <p>{{ t('Nenhum aporte registrado nesta meta ainda.') }}</p>
       </div>
     </div>
     <template #footer
-      ><button class="button secondary" @click="selectedId = ''">Fechar</button
+      ><button class="button secondary" @click="selectedId = ''">{{ t('Fechar') }}</button
       ><button class="button primary" @click="addContribution(selectedId)">
-        <Plus :size="16" />Adicionar aporte
+        <Plus :size="16" />{{ t('Adicionar aporte') }}
       </button></template
     ></ModalPanel
   >
-  <ModalPanel v-if="deleting && !form" title="Excluir registro?" @close="deleting = undefined"
-    ><p>{{ deleting.data.name || 'Este aporte' }} será removido. O progresso será recalculado.</p>
+  <ModalPanel v-if="deleting && !form" :title="t('Excluir registro?')" @close="deleting = undefined"
+    ><p>
+      {{ deleting.data.name || t('Este aporte') }}
+      {{ t('será removido. O progresso será recalculado.') }}
+    </p>
     <p v-if="deleting.kind === 'goals'" class="field-hint">
-      Metas com aportes são preservadas. Para excluir uma meta, remova seus aportes pelo histórico
-      primeiro.
+      {{
+        t(
+          'Metas com aportes são preservadas. Para excluir uma meta, remova seus aportes pelo histórico primeiro.',
+        )
+      }}
     </p>
     <p v-if="error" role="alert" class="notice error">{{ error }}</p>
     <template #footer
       ><button class="button secondary" :disabled="busy" @click="deleting = undefined">
-        Cancelar</button
+        {{ t('Cancelar') }}</button
       ><button class="button danger" :disabled="busy" @click="confirmDelete">
-        {{ busy ? 'Excluindo…' : 'Excluir' }}
+        {{ busy ? t('Excluindo…') : t('Excluir') }}
       </button></template
     ></ModalPanel
   >

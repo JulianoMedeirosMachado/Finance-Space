@@ -201,6 +201,7 @@ export function summarize(records: FinanceRecord[], month: string) {
     .filter((record) => record.kind === 'categories')
     .map((category) => ({
       name: String(category.data.name),
+      uncategorized: false,
       amount: entries
         .filter((entry) => entry.categoryId === category.id && entry.nature === 'expense')
         .reduce((sum, entry) => sum + entry.amount, 0),
@@ -211,7 +212,7 @@ export function summarize(records: FinanceRecord[], month: string) {
     .filter((entry) => !entry.categoryId && entry.nature === 'expense')
     .reduce((sum, entry) => sum + entry.amount, 0);
   if (uncategorized) {
-    categories.push({ name: 'Sem categoria', amount: uncategorized });
+    categories.push({ name: 'Sem categoria', amount: uncategorized, uncategorized: true });
   }
   const balances = records
     .filter((record) => record.kind === 'accounts' && String(record.data.openingMonth) <= month)

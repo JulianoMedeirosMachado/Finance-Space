@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from './stores/auth';
+import { t } from './i18n';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -58,7 +59,8 @@ router.onError((error) => {
   document.getElementById('startup-error')?.remove();
   const notice = document.createElement('p');
   notice.id = 'startup-error';
-  notice.textContent =
-    'Não foi possível conectar. Verifique se o servidor está iniciado e atualize a página.';
+  notice.textContent = t(
+    'Não foi possível conectar. Verifique se o servidor está iniciado e atualize a página.',
+  );
   document.body.append(notice);
 });

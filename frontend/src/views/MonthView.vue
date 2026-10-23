@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '../i18n';
+
 import { computed, ref } from 'vue';
 import { Search, Check, CalendarDays } from 'lucide-vue-next';
 import { useFinanceStore } from '../stores/finance';
@@ -32,7 +34,7 @@ async function realize() {
       selected.value = undefined;
     }
   } catch (failure) {
-    error.value = failure instanceof Error ? failure.message : 'Não foi possível registrar.';
+    error.value = failure instanceof Error ? failure.message : t('Não foi possível registrar.');
   } finally {
     busy.value = false;
   }
@@ -41,34 +43,34 @@ async function realize() {
 <template>
   <div class="page-heading">
     <div>
-      <span class="eyebrow">CADA DETALHE DO SEU MÊS</span>
-      <h1>Meu mês</h1>
+      <span class="eyebrow">{{ t('CADA DETALHE DO SEU MÊS') }}</span>
+      <h1>{{ t('Meu mês') }}</h1>
       <p>
-        Recorrentes, parcelas e avulsos de {{ monthLabel(finance.month) }}, reunidos
-        automaticamente.
+        {{ t('Recorrentes, parcelas e avulsos de') }} {{ monthLabel(finance.month)
+        }}{{ t(', reunidos automaticamente.') }}
       </p>
     </div>
-    <RouterLink class="button secondary" to="/transactions">Ver lançamentos</RouterLink>
+    <RouterLink class="button secondary" to="/transactions">{{ t('Ver lançamentos') }}</RouterLink>
   </div>
   <section class="panel">
     <div class="table-toolbar">
       <div class="search-field">
         <Search :size="17" /><input
           v-model="search"
-          placeholder="Buscar descrição"
-          aria-label="Buscar descrição"
+          :placeholder="t('Buscar descrição')"
+          :aria-label="t('Buscar descrição')"
         />
       </div>
       <div class="toolbar-options">
-        <select v-model="person" aria-label="Filtrar responsável">
-          <option value="">Todos os responsáveis</option>
+        <select v-model="person" :aria-label="t('Filtrar responsável')">
+          <option value="">{{ t('Todos os responsáveis') }}</option>
           <option v-for="item in finance.byKind('people')" :key="item.id" :value="item.id">
             {{ item.data.name }}
           </option></select
-        ><select v-model="nature" aria-label="Filtrar natureza">
-          <option value="">Todas as naturezas</option>
+        ><select v-model="nature" :aria-label="t('Filtrar natureza')">
+          <option value="">{{ t('Todas as naturezas') }}</option>
           <option v-for="(label, value) in natureLabels" :key="value" :value="value">
-            {{ label }}
+            {{ t(label) }}
           </option>
         </select>
       </div>
@@ -77,16 +79,16 @@ async function realize() {
       <table>
         <thead>
           <tr>
-            <th>Descrição</th>
-            <th>Responsável</th>
-            <th>Natureza</th>
-            <th>Conta / cartão</th>
-            <th>Parcela</th>
-            <th>Término</th>
-            <th>Saldo após o mês</th>
-            <th>Valor</th>
-            <th>Situação</th>
-            <th>Ação</th>
+            <th>{{ t('Descrição') }}</th>
+            <th>{{ t('Responsável') }}</th>
+            <th>{{ t('Natureza') }}</th>
+            <th>{{ t('Conta / cartão') }}</th>
+            <th>{{ t('Parcela') }}</th>
+            <th>{{ t('Término') }}</th>
+            <th>{{ t('Saldo após o mês') }}</th>
+            <th>{{ t('Valor') }}</th>
+            <th>{{ t('Situação') }}</th>
+            <th>{{ t('Ação') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -95,21 +97,21 @@ async function realize() {
               <strong>{{ entry.description }}</strong
               ><small class="table-secondary">{{
                 entry.sourceKind === 'history'
-                  ? 'Histórico'
+                  ? t('Histórico')
                   : entry.sourceKind === 'transactions'
-                    ? 'Lançamento'
-                    : 'Previsão automática'
+                    ? t('Lançamento')
+                    : t('Previsão automática')
               }}</small>
             </td>
             <td>{{ finance.label(entry.personId) }}</td>
-            <td>{{ natureLabels[entry.nature] }}</td>
+            <td>{{ t(natureLabels[entry.nature]) }}</td>
             <td>{{ finance.label(entry.cardId || entry.accountId) }}</td>
             <td>{{ entry.installment || '—' }}</td>
             <td>{{ entry.endMonth ? monthLabel(String(entry.endMonth)) : '—' }}</td>
             <td>{{ entry.remainingAmount === undefined ? '—' : money(entry.remainingAmount) }}</td>
             <td class="money-cell">{{ money(entry.amount) }}</td>
             <td>
-              <span class="badge" :class="entry.status">{{ statusLabels[entry.status] }}</span>
+              <span class="badge" :class="entry.status">{{ t(statusLabels[entry.status]) }}</span>
             </td>
             <td>
               <button
@@ -121,13 +123,13 @@ async function realize() {
                   error = '';
                 "
               >
-                <Check :size="14" />Realizar</button
+                <Check :size="14" />{{ t('Realizar') }}</button
               ><button
                 v-else-if="entry.sourceKind === 'transactions'"
                 class="text-button"
                 @click="editing = finance.records.find((record) => record.id === entry.id)"
               >
-                Editar
+                {{ t('Editar') }}
               </button>
             </td>
           </tr>
@@ -135,14 +137,14 @@ async function realize() {
       </table>
       <div v-if="!entries.length" class="empty-state">
         <CalendarDays :size="34" />
-        <h3>Nenhum lançamento neste mês</h3>
-        <p>Cadastre seus compromissos ou importe sua planilha.</p>
+        <h3>{{ t('Nenhum lançamento neste mês') }}</h3>
+        <p>{{ t('Cadastre seus compromissos para acompanhar o mês.') }}</p>
       </div>
     </div>
     <div class="table-footer">
-      <span>{{ entries.length }} registros</span
+      <span>{{ entries.length }} {{ t('registros') }}</span
       ><span
-        >Soma dos valores exibidos: <strong>{{ money(total) }}</strong></span
+        >{{ t('Soma dos valores exibidos:') }} <strong>{{ money(total) }}</strong></span
       >
     </div>
   </section>
@@ -155,15 +157,16 @@ async function realize() {
   />
   <div v-if="selected" class="modal-backdrop">
     <form class="confirm-dialog" @submit.prevent="realize">
-      <h2>Registrar realização</h2>
+      <h2>{{ t('Registrar realização') }}</h2>
       <p>{{ selected.description }} · {{ money(selected.amount) }}</p>
       <label
-        >Conta bancária<select v-model="selectedAccount" :required="!selected.cardId">
+        >{{ t('Conta bancária')
+        }}<select v-model="selectedAccount" :required="!selected.cardId">
           <option value="">
             {{
               selected.cardId
-                ? 'Compra no cartão — sem saída bancária agora'
-                : 'Selecione uma conta'
+                ? t('Compra no cartão — sem saída bancária agora')
+                : t('Selecione uma conta')
             }}
           </option>
           <option
@@ -176,7 +179,7 @@ async function realize() {
         </select></label
       >
       <p class="field-hint">
-        A realização substitui a previsão deste mês e preserva o valor registrado.
+        {{ t('A realização substitui a previsão deste mês e preserva o valor registrado.') }}
       </p>
       <p v-if="error" role="alert" class="notice error">{{ error }}</p>
       <div class="dialog-footer">
@@ -186,9 +189,9 @@ async function realize() {
           :disabled="busy"
           @click="selected = undefined"
         >
-          Cancelar</button
+          {{ t('Cancelar') }}</button
         ><button class="button primary" :disabled="busy">
-          {{ busy ? 'Salvando…' : 'Confirmar realização' }}
+          {{ busy ? t('Salvando…') : t('Confirmar realização') }}
         </button>
       </div>
     </form>

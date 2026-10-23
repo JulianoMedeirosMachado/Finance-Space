@@ -1,3 +1,5 @@
+import { t, language } from '../i18n';
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -12,18 +14,22 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   const response = await fetch(`/api${path}`, {
     ...options,
     credentials: 'include',
-    headers: { ...(formData ? {} : { 'Content-Type': 'application/json' }), ...options.headers },
+    headers: {
+      ...(formData ? {} : { 'Content-Type': 'application/json' }),
+      'Accept-Language': language.value,
+      ...options.headers,
+    },
   }).catch(() => {
-    throw new ApiError('Não foi possível conectar ao servidor. Verifique sua conexão.', 0);
+    throw new ApiError(t('Não foi possível conectar ao servidor. Verifique sua conexão.'), 0);
   });
   const body = await response
     .json()
-    .catch(() => ({ message: 'O servidor não respondeu. Verifique sua conexão.' }));
+    .catch(() => ({ message: t('O servidor não respondeu. Verifique sua conexão.') }));
   let result: T;
   if (response.ok) {
     result = body as T;
   } else {
-    throw new ApiError(body.message || 'Não foi possível concluir a operação.', response.status);
+    throw new ApiError(body.message || t('Não foi possível concluir a operação.'), response.status);
   }
   return result;
 }

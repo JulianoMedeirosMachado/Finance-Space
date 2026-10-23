@@ -66,15 +66,37 @@ test(
         data?: unknown,
         cookie = '',
         requestOrigin = origin,
+        language = 'pt-BR',
       ) =>
         fetch(`${origin}/api${path}`, {
           method,
-          headers: { 'Content-Type': 'application/json', Origin: requestOrigin, Cookie: cookie },
+          headers: {
+            'Content-Type': 'application/json',
+            Origin: requestOrigin,
+            Cookie: cookie,
+            'Accept-Language': language,
+          },
           body: data === undefined ? undefined : JSON.stringify(data),
         });
       assert.equal((await request('/finance/records')).status, 401);
       assert.equal((await request('/finance/export')).status, 401);
       assert.equal((await request('/finance/dashboard?month=2026-10')).status, 401);
+      assert.equal(
+        (await request('/auth/preferences', 'PATCH', { language: 'en-US' })).status,
+        401,
+      );
+      const englishError = await request(
+        '/auth/register',
+        'POST',
+        { name: 'Test User', email: 'invalid', password: 'short' },
+        '',
+        origin,
+        'en-US',
+      );
+      assert.equal(englishError.status, 400);
+      assert.deepEqual(await englishError.json(), {
+        message: 'Email: enter a valid format. Password: enter at least 10 characters.',
+      });
       const invalidSignup = await request('/auth/register', 'POST', {
         name: 'Test User',
         email: 'invalid',
@@ -93,6 +115,28 @@ test(
       const cookie = signup.headers.get('set-cookie')!.split(';')[0];
       assert.match(signup.headers.get('set-cookie')!, /HttpOnly/);
       assert.equal((await request('/auth/me', 'GET', undefined, cookie)).status, 200);
+      const preference = await request('/auth/preferences', 'PATCH', { language: 'en-US' }, cookie);
+      assert.equal(preference.status, 200);
+      assert.equal((await preference.json()).language, 'en-US');
+      assert.equal(
+        (await (await request('/auth/me', 'GET', undefined, cookie)).json()).language,
+        'en-US',
+      );
+      assert.equal(
+        (await request('/auth/preferences', 'PATCH', { language: 'de-DE' }, cookie)).status,
+        400,
+      );
+      assert.equal(
+        (
+          await request(
+            '/auth/preferences',
+            'PATCH',
+            { language: 'pt-BR', userId: 'forged' },
+            cookie,
+          )
+        ).status,
+        400,
+      );
       assert.equal(
         (
           await request(
@@ -147,6 +191,14 @@ test(
         password: 'test-password-123',
       });
       const secondCookie = second.headers.get('set-cookie')!.split(';')[0];
+      assert.equal(
+        (await (await request('/auth/me', 'GET', undefined, secondCookie)).json()).language,
+        'pt-BR',
+      );
+      assert.equal(
+        (await (await request('/auth/me', 'GET', undefined, cookie)).json()).language,
+        'en-US',
+      );
       assert.equal(
         (
           await request(

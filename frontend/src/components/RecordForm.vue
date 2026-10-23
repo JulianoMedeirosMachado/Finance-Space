@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '../i18n';
+
 import { computed, onMounted, ref } from 'vue';
 import { X } from 'lucide-vue-next';
 import { resources } from '../config/resources';
@@ -7,14 +9,14 @@ import type { FinanceRecord, RecordData, ResourceKind } from '../types';
 const props = defineProps<{ kind: ResourceKind; record?: FinanceRecord; initial?: RecordData }>();
 const emit = defineEmits<{ close: []; saved: [] }>();
 const finance = useFinanceStore();
-const definition = resources[props.kind];
+const definition = computed(() => resources.value[props.kind]);
 const form = ref<Record<string, string | number | boolean>>({});
 const busy = ref(false);
 const error = ref('');
 const dialog = ref<HTMLDialogElement>();
 const today = new Date();
 const defaultDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-for (const field of definition.fields) {
+for (const field of definition.value.fields) {
   const original = props.record?.data[field.key] ?? props.initial?.[field.key];
   form.value[field.key] =
     original === undefined
@@ -37,7 +39,7 @@ for (const field of definition.fields) {
         : original;
 }
 const fields = computed(() =>
-  definition.fields.filter((field) => {
+  definition.value.fields.filter((field) => {
     let visible = true;
     if (props.kind === 'transactions') {
       if (field.key === 'destinationAccountId') {
@@ -81,7 +83,7 @@ async function save() {
     await finance.save(props.kind, data, props.record);
     emit('saved');
   } catch (failure) {
-    error.value = failure instanceof Error ? failure.message : 'Não foi possível salvar.';
+    error.value = failure instanceof Error ? failure.message : t('Não foi possível salvar.');
   } finally {
     busy.value = false;
   }
@@ -93,12 +95,12 @@ async function save() {
       <div class="dialog-header">
         <div>
           <span class="eyebrow">FINANCE SPACE</span>
-          <h2>{{ record ? 'Editar' : 'Adicionar' }} {{ definition.singular }}</h2>
+          <h2>{{ record ? t('Editar') : t('Adicionar') }} {{ definition.singular }}</h2>
         </div>
         <button
           type="button"
           class="icon-button"
-          aria-label="Fechar formulário"
+          :aria-label="t('Fechar formulário')"
           @click="emit('close')"
         >
           <X :size="20" />
@@ -107,8 +109,11 @@ async function save() {
       <div class="dialog-body">
         <div v-if="error" class="notice error" role="alert">{{ error }}</div>
         <p v-if="kind === 'recurring' || kind === 'income'" class="field-hint">
-          Alterações recalculam as previsões do período. Realizações já registradas mantêm seus
-          valores. Para uma mudança futura, encerre esta recorrência e crie outra.
+          {{
+            t(
+              'Alterações recalculam as previsões do período. Realizações já registradas mantêm seus valores. Para uma mudança futura, encerre esta recorrência e crie outra.',
+            )
+          }}
         </p>
         <div class="form-grid">
           <label
@@ -125,7 +130,7 @@ async function save() {
               v-model="form[field.key]"
               :required="field.required"
             >
-              <option value="">Selecione</option>
+              <option value="">{{ t('Selecione') }}</option>
               <template v-if="field.source"
                 ><option
                   v-for="item in finance.byKind(field.source)"
@@ -161,15 +166,18 @@ async function save() {
           /></label>
         </div>
         <p v-if="fields.some((field) => field.source)" class="field-hint">
-          Cadastre contas, cartões, categorias e responsáveis nas respectivas telas ou em
-          Configurações.
+          {{
+            t(
+              'Cadastre contas, cartões, categorias e responsáveis nas respectivas telas ou em Configurações.',
+            )
+          }}
         </p>
       </div>
       <div class="dialog-footer">
         <button class="button secondary" type="button" :disabled="busy" @click="emit('close')">
-          Cancelar</button
+          {{ t('Cancelar') }}</button
         ><button class="button primary" :disabled="busy">
-          {{ busy ? 'Salvando…' : 'Salvar alterações' }}
+          {{ busy ? t('Salvando…') : t('Salvar alterações') }}
         </button>
       </div>
     </form>
