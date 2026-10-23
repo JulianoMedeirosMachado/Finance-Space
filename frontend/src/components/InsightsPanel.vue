@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Sparkles, Settings, RefreshCw } from 'lucide-vue-next';
 import { t, language } from '../i18n';
 import { dateLabel } from '../utils/format';
@@ -13,7 +13,8 @@ const props = defineProps<{
   waiting?: boolean;
   error?: string;
 }>();
-const emit = defineEmits<{ generate: []; refresh: []; select: [id: string] }>();
+const emit = defineEmits<{ generate: [retry: boolean]; refresh: []; select: [id: string] }>();
+const retryConsent = ref(false);
 const currentPeriod = computed(() => props.overview.periods[props.kind]);
 const selected = computed(() =>
   props.overview.reports.find((report) =>
@@ -26,6 +27,19 @@ const history = computed(() =>
   props.overview.reports.filter((report) => report.kind === props.kind && report.state === 'ready'),
 );
 const timestamp = (value: string) => new Date(value).toLocaleString(language.value);
+watch(
+  () => [props.kind, selected.value?.state, props.busy],
+  () => {
+    retryConsent.value = false;
+  },
+);
+
+function requestGeneration() {
+  if (!selected.value || retryConsent.value) {
+    emit('generate', Boolean(selected.value));
+    retryConsent.value = false;
+  }
+}
 </script>
 
 <template>
@@ -69,7 +83,19 @@ const timestamp = (value: string) => new Date(value).toLocaleString(language.val
       v-if="overview.enabled && overview.ready && !selectedId && selected?.state !== 'ready'"
       class="integration-actions"
     >
-      <button class="button secondary" :disabled="busy || waiting" @click="emit('generate')">
+      <label v-if="selected" class="integration-consent">
+        <input v-model="retryConsent" type="checkbox" :disabled="busy || waiting" />
+        {{
+          t(
+            'Entendo que repetir a análise faz uma nova chamada à IA e pode consumir créditos, mesmo se falhar.',
+          )
+        }}
+      </label>
+      <button
+        class="button secondary"
+        :disabled="busy || waiting || Boolean(selected && !retryConsent)"
+        @click="requestGeneration"
+      >
         <Sparkles :size="17" />{{
           selected?.state === 'failed' ? t('Tentar novamente') : t('Gerar análise')
         }}

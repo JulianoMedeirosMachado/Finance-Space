@@ -22,6 +22,16 @@ const english: Record<string, string> = {
     'AI authorization changed during generation. No report was saved.',
   'A IA não retornou uma análise válida. Tente novamente mais tarde.':
     'AI did not return a valid analysis. Try again later.',
+  'A resposta da IA não corresponde ao formato da análise. Nenhuma nova chamada foi feita automaticamente. A tentativa pode ter consumido créditos.':
+    'The AI response does not match the analysis format. No automatic retry was made. The attempt may have consumed credits.',
+  'A IA interrompeu a resposta no limite de tokens. Nenhuma nova chamada foi feita automaticamente. A tentativa pode ter consumido créditos.':
+    'AI stopped at the token limit. No automatic retry was made. The attempt may have consumed credits.',
+  'O provedor não concluiu a resposta da IA. Nenhuma nova chamada foi feita automaticamente. A tentativa pode ter consumido créditos.':
+    'The provider did not complete the AI response. No automatic retry was made. The attempt may have consumed credits.',
+  'A IA retornou uma resposta vazia. Nenhuma nova chamada foi feita automaticamente. A tentativa pode ter consumido créditos.':
+    'AI returned an empty response. No automatic retry was made. The attempt may have consumed credits.',
+  'Já existe uma tentativa para este período. Confirme explicitamente uma nova tentativa, que pode consumir créditos.':
+    'An attempt already exists for this period. Explicitly confirm a retry, which may consume credits.',
   'O total não pode ser dividido nesse número de parcelas.':
     'The total cannot be split into that number of installments.',
   'Informe uma conta ou cartão sem ambiguidade. Parcelamentos precisam de cartão.':
@@ -42,6 +52,14 @@ const english: Record<string, string> = {
     'Unable to contact AI. Check your key, model and credits.',
   'A IA não retornou uma despesa válida. Reenvie a mensagem completa.':
     'AI did not return a valid expense. Resend the complete message.',
+  'A IA não retornou um lançamento válido. Reenvie a mensagem completa.':
+    'AI did not return a valid entry. Resend the complete message.',
+  'Receitas precisam de uma conta de destino, sem cartão, parcelamento ou responsável externo.':
+    'Income requires a destination account, without a card, installments or external responsible person.',
+  'Escolha recorrência mensal ou parcelamento, não ambos no mesmo lançamento.':
+    'Choose a monthly recurrence or installments, not both in the same entry.',
+  'Dia recorrente e término só se aplicam a recorrências mensais.':
+    'Recurring day and end month only apply to monthly schedules.',
   'Não foi possível responder no Telegram.': 'Unable to reply on Telegram.',
   'Não foi possível concluir a operação.': 'Unable to complete the operation.',
   'E-mail ou senha inválidos.': 'Invalid email or password.',

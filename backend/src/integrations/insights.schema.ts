@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const insightKindSchema = z.enum(['weekly', 'monthly']);
 export type InsightKind = z.infer<typeof insightKindSchema>;
+export const insightGenerationSchema = z.object({ retry: z.boolean().default(false) }).strict();
 export const insightReportSchema = z
   .object({
     title: z.string().trim().min(1).max(160),

@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -31,10 +32,30 @@ test('legacy schema upgrades preserve data and goals and contributions survive s
   await original.query('ALTER TABLE users DROP COLUMN language');
   await original.query('DELETE FROM schema_migrations WHERE version=3');
   const before = await finance.list(user.id);
+  const legacyDraftId = randomUUID();
+  await original.query(
+    "INSERT INTO telegram_drafts(id,user_id,update_id,data) VALUES($1,$2,1,'{}')",
+    [legacyDraftId, user.id],
+  );
+  await original.query(
+    "ALTER TABLE telegram_drafts DROP CONSTRAINT telegram_drafts_kind_check, ADD CONSTRAINT telegram_drafts_kind_check CHECK(kind IN ('transactions','installments'))",
+  );
+  await original.query('DELETE FROM schema_migrations WHERE version=6');
   await original.onModuleDestroy();
   const upgraded = new DatabaseService();
   await upgraded.onModuleInit();
   const upgradedFinance = new FinanceService(upgraded);
+  assert.equal(
+    (await upgraded.query('SELECT kind FROM telegram_drafts WHERE id=$1', [legacyDraftId]))[0].kind,
+    'transactions',
+  );
+  const kindConstraint = (
+    await upgraded.query(
+      "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conname='telegram_drafts_kind_check'",
+    )
+  )[0].definition;
+  assert.match(String(kindConstraint), /recurring/);
+  assert.match(String(kindConstraint), /income/);
   const upgradedAuth = new AuthService(upgraded);
   assert.equal(
     (
@@ -69,7 +90,7 @@ test('legacy schema upgrades preserve data and goals and contributions survive s
     (await restarted.query('SELECT version FROM schema_migrations ORDER BY version')).map(
       (row) => row.version,
     ),
-    [1, 2, 3, 4, 5],
+    [1, 2, 3, 4, 5, 6],
   );
   assert.equal((await new AuthService(restarted).findUser(session.token)).language, 'en-US');
   await restarted.onModuleDestroy();

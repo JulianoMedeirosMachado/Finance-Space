@@ -51,7 +51,7 @@ export class InsightsService {
     )[0];
   }
 
-  async generate(userId: string, kind: InsightKind, language: 'pt-BR' | 'en-US') {
+  async generate(userId: string, kind: InsightKind, language: 'pt-BR' | 'en-US', retry = false) {
     const today = localToday();
     const period = closedPeriod(kind, today);
     const token = randomUUID();
@@ -62,6 +62,12 @@ export class InsightsService {
       const settings = await this.repository.settings(userId, database);
       let result: { claimed: boolean; version: number; cached?: InsightRow };
       if (settings?.insights_enabled && settings.encrypted_key) {
+        const existing = await this.current(database, userId, kind, period.start);
+        if (existing && existing.state !== 'ready' && !retry) {
+          throw new ConflictException(
+            'Já existe uma tentativa para este período. Confirme explicitamente uma nova tentativa, que pode consumir créditos.',
+          );
+        }
         const rows = await database.query(
           `INSERT INTO ai_insights(id,user_id,kind,period_start,period_end,state,generation_token,language,model)
           VALUES($1,$2,$3,$4,$5,'generating',$6,$7,$8)

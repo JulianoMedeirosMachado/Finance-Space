@@ -11,10 +11,10 @@ import { FinanceService } from '../finance/finance.service';
 import { FinanceData, FinanceRecord, parseRecordData } from '../finance/finance.schema';
 import { AiCredential, AiService } from './ai.service';
 import { IntegrationRepository, IntegrationSettings } from './integration.repository';
-import { AiSettings, BotReply, ExpenseProposal, TelegramUpdate } from './integration.schema';
+import { AiSettings, BotReply, EntryProposal, TelegramUpdate } from './integration.schema';
 import { SecretVault } from './secret-vault';
 import { TelegramClient } from './telegram.client';
-import { buildTelegramExpense, TelegramDraft } from './telegram-expense';
+import { buildTelegramEntry, TelegramDraft } from './telegram-entry';
 import { addMonths } from '../finance/calculations';
 
 @Injectable()
@@ -228,8 +228,8 @@ export class IntegrationService {
               reply = {
                 chatId,
                 text: english
-                  ? 'Send one complete expense: item, amount, payment account/card, and optionally date, reporting month and category. For installments: total amount and number of installments, or explicitly the amount of each installment. /disconnect unlinks this account. Text only; no transfers.'
-                  : 'Envie uma despesa completa: item, valor, conta/cartão e, se quiser, data, competência e categoria. Para parcelar: valor total e quantidade de parcelas, ou informe explicitamente o valor de cada parcela. /disconnect desvincula esta conta. Somente texto; sem transferências.',
+                  ? 'Send one complete entry: item, amount, account/card, and optionally date, reporting month, category and a registered responsible person for expenses. Subscription: "Streaming 30 monthly on ML, day 10" (monthly planned schedule). Income: "Received 20 for a sale into Checking" (account required, no card). Monthly income: "Salary 3000 monthly into Checking, day 5" (planned). Installments: total and count, or explicitly each installment amount. Check the type in the preview before confirming. /disconnect unlinks this account. Text only; no transfers or reimbursements.'
+                  : 'Envie um lançamento completo: item, valor, conta/cartão e, se quiser, data, competência, categoria e responsável cadastrado para despesas. Assinatura: "Streaming 30 mensal no ML, dia 10" (previsão mensal). Receita: "Receita de 20 pela venda na conta Corrente" (precisa de conta, sem cartão). Receita mensal: "Salário 3000 todo mês na conta Corrente, dia 5" (previsão). Parcelamento: total e quantidade ou o valor explícito de cada parcela. Confira o tipo na prévia antes de confirmar. /disconnect desvincula esta conta. Somente texto; sem transferências ou reembolsos.',
               };
             } else {
               reply = await this.propose(settings, update.update_id, text, english);
@@ -242,8 +242,8 @@ export class IntegrationService {
             reply = {
               chatId,
               text: english
-                ? 'Unable to prepare this expense. Check your AI settings and limits, or resend a complete message. Nothing was added automatically.'
-                : `${key || 'Não foi possível preparar a despesa. Confira sua configuração e reenvie a mensagem completa.'} Nenhum lançamento é feito sem confirmação.`,
+                ? 'Unable to prepare this entry. Check your AI settings and limits, or resend a complete message. Nothing was added automatically.'
+                : `${key || 'Não foi possível preparar o lançamento. Confira sua configuração e reenvie a mensagem completa.'} Nenhum lançamento é feito sem confirmação.`,
             };
           }
           if (reply && text !== '/disconnect') {
@@ -291,11 +291,11 @@ export class IntegrationService {
     let draft = existing[0];
     let reply: BotReply;
     if (!draft) {
-      const proposal = await this.interpretExpense(settings, text, references, english);
+      const proposal = await this.interpretEntry(settings, text, references, english);
       if (proposal.clarification) {
         reply = { chatId: settings.telegram_user_id!, text: proposal.clarification };
       } else {
-        const { data, kind } = buildTelegramExpense(proposal, references, text);
+        const { data, kind } = buildTelegramEntry(proposal, references, text);
         await this.repository.database.forUser(userId, async (database) => {
           await database.query(
             'SELECT user_id FROM integration_settings WHERE user_id=$1 FOR UPDATE',
@@ -333,13 +333,13 @@ export class IntegrationService {
     return reply;
   }
 
-  private async interpretExpense(
+  private async interpretEntry(
     settings: IntegrationSettings,
     text: string,
     references: FinanceRecord[],
     english: boolean,
   ) {
-    let proposal: ExpenseProposal;
+    let proposal: EntryProposal;
     if (references.length <= 300) {
       const credential = this.credential(settings);
       await this.reserveAiCall(settings.user_id);
@@ -377,10 +377,28 @@ export class IntegrationService {
     const schedule =
       draft.kind === 'installments'
         ? `\n${english ? 'Installment plan' : 'Parcelamento'}: ${data.count} × ${amount}\n${english ? 'Last installment' : 'Última parcela'}: ${money(Number(data.finalAmount ?? data.amount))}\n${english ? 'Total' : 'Total'}: ${money(Number(data.amount) * (Number(data.count) - 1) + Number(data.finalAmount ?? data.amount))}\n${english ? 'First reporting month' : 'Primeira competência'}: ${data.startMonth}\n${english ? 'Last reporting month' : 'Última competência'}: ${addMonths(String(data.startMonth), Number(data.count) - 1)}`
-        : `\n${amount}\n${english ? 'Date' : 'Data'}: ${data.date}\n${english ? 'Reporting month' : 'Competência'}: ${data.month}`;
+        : draft.kind === 'recurring' || draft.kind === 'income'
+          ? `\n${english ? 'Monthly amount' : 'Valor mensal'}: ${amount}\n${english ? 'First reporting month' : 'Primeira competência'}: ${data.startMonth}\n${english ? 'Day' : 'Dia'}: ${data.day}\n${english ? 'Last reporting month' : 'Última competência'}: ${data.endMonth || (english ? 'No end date' : 'Sem término')}\n${english ? 'Planned monthly schedule only; no payment or receipt is marked as completed.' : 'Somente previsão mensal; nenhum pagamento ou recebimento é marcado como realizado.'}`
+          : `\n${amount}\n${english ? 'Date' : 'Data'}: ${data.date}\n${english ? 'Reporting month' : 'Competência'}: ${data.month}`;
+    const type =
+      draft.kind === 'recurring'
+        ? english
+          ? 'Subscription / recurring expense'
+          : 'Assinatura / despesa recorrente'
+        : draft.kind === 'income'
+          ? english
+            ? 'Recurring income (planned)'
+            : 'Receita recorrente (prevista)'
+          : data.nature === 'income'
+            ? english
+              ? 'Income received'
+              : 'Receita recebida'
+            : english
+              ? 'Expense'
+              : 'Despesa';
     return {
       chatId: settings.telegram_user_id!,
-      text: `${english ? 'Review the AI proposal' : 'Confira a proposta da IA'}\n${data.description}${schedule}\n${data.cardId ? (english ? 'Suggested card' : 'Cartão sugerido') : english ? 'Suggested account' : 'Conta sugerida'}: ${name(data.cardId || data.accountId)}\n${english ? 'Suggested category' : 'Categoria sugerida'}: ${name(data.categoryId)}\n${english ? 'Responsible person' : 'Responsável'}: ${data.personId ? name(data.personId) : english ? 'You' : 'Você'}\n\n${english ? 'Names and abbreviations may have been interpreted. Check the account/card and responsible person before confirming. No reimbursement is marked as received. Expires in 24 hours. To correct, cancel and resend a complete message.' : 'Nomes e siglas podem ter sido interpretados. Confira a conta/cartão e o responsável antes de confirmar. Nenhum reembolso é marcado como recebido. Expira em 24 horas. Para corrigir, cancele e reenvie uma mensagem completa.'}`,
+      text: `${english ? 'Review the AI proposal' : 'Confira a proposta da IA'}\n${english ? 'Type' : 'Tipo'}: ${type}\n${data.description}${schedule}\n${data.cardId ? (english ? 'Suggested card' : 'Cartão sugerido') : english ? 'Suggested account' : 'Conta sugerida'}: ${name(data.cardId || data.accountId)}\n${english ? 'Suggested category' : 'Categoria sugerida'}: ${name(data.categoryId)}\n${english ? 'Responsible person' : 'Responsável'}: ${data.personId ? name(data.personId) : english ? 'You' : 'Você'}\n\n${english ? 'Names and abbreviations may have been interpreted. Check the account/card and responsible person before confirming. No reimbursement is marked as received. Expires in 24 hours. To correct, cancel and resend a complete message.' : 'Nomes e siglas podem ter sido interpretados. Confira a conta/cartão e o responsável antes de confirmar. Nenhum reembolso é marcado como recebido. Expira em 24 horas. Para corrigir, cancele e reenvie uma mensagem completa.'}`,
       buttons: [
         [
           { text: english ? 'Confirm' : 'Confirmar', callback_data: `confirm:${draft.id}` },
@@ -423,8 +441,8 @@ export class IntegrationService {
         const draft = drafts[0];
         if (draft?.state === 'confirmed') {
           response = english
-            ? 'Expense already registered; no duplicate was created.'
-            : 'Despesa já registrada; nenhum lançamento duplicado foi criado.';
+            ? 'Entry already registered; no duplicate was created.'
+            : 'Lançamento já registrado; nenhum lançamento duplicado foi criado.';
         } else if (
           draft?.state === 'pending' &&
           draft.valid &&
@@ -451,9 +469,17 @@ export class IntegrationService {
                 ? english
                   ? 'Installment plan registered! Fine-tune it under Installments in Finance Space.'
                   : 'Parcelamento registrado! Faça os ajustes finos em Parcelamentos no Finance Space.'
-                : english
-                  ? 'Expense registered! You can edit it in Finance Space.'
-                  : 'Despesa registrada! Você pode editá-la no Finance Space.';
+                : draft.kind === 'recurring' || draft.kind === 'income'
+                  ? english
+                    ? 'Monthly schedule registered! Manage and post each occurrence in Finance Space; nothing was marked as paid or received.'
+                    : 'Recorrência mensal registrada! Gerencie e realize cada ocorrência no Finance Space; nada foi marcado como pago ou recebido.'
+                  : data.nature === 'income'
+                    ? english
+                      ? 'Income registered! You can edit it in Finance Space.'
+                      : 'Receita registrada! Você pode editá-la no Finance Space.'
+                    : english
+                      ? 'Expense registered! You can edit it in Finance Space.'
+                      : 'Despesa registrada! Você pode editá-la no Finance Space.';
           } else {
             await database.query(
               "UPDATE telegram_drafts SET state='cancelled' WHERE id=$1 AND user_id=$2",

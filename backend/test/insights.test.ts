@@ -280,6 +280,8 @@ test(
       const first = insights().generate(alice.id, 'weekly', 'en-US');
       await waitForCalls(1);
       await assert.rejects(insights().generate(alice.id, 'weekly', 'en-US'));
+      await assert.rejects(insights().generate(alice.id, 'weekly', 'en-US', true));
+      assert.equal(ai.calls.length, 1);
       release();
       const report = await first;
       ai.wait = undefined;
@@ -322,10 +324,71 @@ test(
         'failed',
       );
       ai.fail = false;
+      const callsAfterFailure = ai.calls.length;
+      await assert.rejects(
+        insights().generate(alice.id, 'monthly', 'en-US'),
+        /Confirme explicitamente/,
+      );
+      assert.equal(ai.calls.length, callsAfterFailure);
+      await insights().list(alice.id);
+      assert.equal(ai.calls.length, callsAfterFailure);
       await database.query('UPDATE integration_settings SET ai_last_at=NULL WHERE user_id=$1', [
         alice.id,
       ]);
-      await insights().generate(alice.id, 'monthly', 'en-US');
+      const previousFetch = globalThis.fetch;
+      let providerCalls = 0;
+      try {
+        globalThis.fetch = async (_url, options) => {
+          providerCalls++;
+          const request = JSON.parse(String(options?.body));
+          assert.deepEqual(request.thinking, { type: 'disabled' });
+          assert.doesNotMatch(
+            JSON.stringify(request.messages),
+            /PRIVATE_|alice|example.test|password/i,
+          );
+          return new Response(
+            JSON.stringify({
+              choices: [
+                {
+                  finish_reason: 'stop',
+                  message: {
+                    content:
+                      '```json\n' +
+                      JSON.stringify({
+                        title: 'Monthly summary',
+                        summary: 'Review [[category_1]].',
+                        extra: 'ignored',
+                        findings: [
+                          { title: 'Coverage', detail: 'Recorded data may be incomplete.' },
+                        ],
+                      }) +
+                      '\n```',
+                  },
+                },
+              ],
+            }),
+            { status: 200 },
+          );
+        };
+        const realAdapterService = new InsightsService(
+          database,
+          repository(),
+          integration(),
+          new FinanceService(database),
+          new AiService(),
+        );
+        const saved = await realAdapterService.generate(alice.id, 'monthly', 'en-US', true);
+        assert.equal(saved.state, 'ready');
+        assert.equal(saved.report!.summary, 'Review PRIVATE_CATEGORY.');
+        assert.equal(saved.report!.findings[0].suggestion, '');
+        assert.equal(
+          (await realAdapterService.generate(alice.id, 'monthly', 'en-US', true)).id,
+          saved.id,
+        );
+        assert.equal(providerCalls, 1);
+      } finally {
+        globalThis.fetch = previousFetch;
+      }
       assert.equal(
         (await insights().list(alice.id)).reports.filter((value) => value.state === 'ready').length,
         2,

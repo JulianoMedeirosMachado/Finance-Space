@@ -1,4 +1,10 @@
 export const english: Record<string, string> = {
+  'Sua IA, sua conta. Use o bot central para preparar lançamentos e confirme antes de cadastrar.':
+    'Your AI, your account. Use the central bot to prepare entries and confirm before saving.',
+  'Envie despesas, parcelamentos, assinaturas mensais ou receitas por texto. Ex.: "Streaming 30 recorrente no cartão ML, dia 10" ou "20 reais pela venda, receita na conta Corrente". Receitas precisam de conta, não cartão. Recorrências criam previsões mensais, sem marcar pagamento ou recebimento. Confira o tipo na prévia. Para corrigir, cancele e reenvie a mensagem completa. Sem áudios, fotos, transferências ou reembolsos.':
+    'Send expenses, installments, monthly subscriptions or income by text. E.g. "Streaming 30 recurring on card ML, day 10" or "20 for a sale, income into Checking". Income requires an account, not a card. Recurrences create monthly forecasts without marking payment or receipt. Check the type in the preview. To correct, cancel and resend a complete message. No audio, photos, transfers or reimbursements.',
+  'Entendo que repetir a análise faz uma nova chamada à IA e pode consumir créditos, mesmo se falhar.':
+    'I understand that retrying makes a new AI request and may consume credits even if it fails.',
   'Para despesas de outra pessoa, cite um responsável cadastrado: nome, item, valor e conta/cartão. Ele aparece na prévia e entra nos acertos, sem marcar reembolso como recebido. Só enviamos à IA referências aos nomes citados, não a lista completa de responsáveis nem seus saldos.':
     'For another person’s expenses, mention a registered responsible person: name, item, amount and account/card. They appear in the preview and settlement calculations, without marking reimbursement as received. AI only receives references to names mentioned, not the full list of people or their balances.',
   'Última parcela (R$)': 'Last installment (BRL)',

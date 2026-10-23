@@ -55,9 +55,17 @@ export interface BotReply {
   buttons?: { text: string; callback_data: string }[][];
 }
 
-export const expenseProposalSchema = z
+export const entryProposalSchema = z
   .object({
     description: z.string().trim().min(1).max(250),
+    nature: z.enum(['expense', 'income']).default('expense'),
+    recurrence: z.enum(['none', 'monthly']).default('none'),
+    day: z.number().int().min(1).max(31).nullable().default(null),
+    endMonth: z
+      .string()
+      .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+      .nullable()
+      .default(null),
     amount: z.number().int().positive().max(100_000_000_000),
     date: z.iso.date(),
     month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
@@ -71,4 +79,4 @@ export const expenseProposalSchema = z
     amountBasis: z.enum(['total', 'per_installment']).default('total'),
   })
   .strict();
-export type ExpenseProposal = z.infer<typeof expenseProposalSchema>;
+export type EntryProposal = z.infer<typeof entryProposalSchema>;

@@ -130,7 +130,7 @@ async function changeInsights(event: Event) {
     <p>
       {{
         t(
-          'Sua IA, sua conta. Use o bot central para preparar despesas e confirme antes de cadastrar.',
+          'Sua IA, sua conta. Use o bot central para preparar lançamentos e confirme antes de cadastrar.',
         )
       }}
     </p>
@@ -314,7 +314,7 @@ async function changeInsights(event: Event) {
           <p class="field-hint">
             {{
               t(
-                'Despesas e parcelamentos por texto em conversa privada. Informe o total e a quantidade de parcelas, ou o valor explícito de cada parcela. Para corrigir, cancele e reenvie a mensagem completa. Sem áudios, fotos ou transferências.',
+                'Envie despesas, parcelamentos, assinaturas mensais ou receitas por texto. Ex.: "Streaming 30 recorrente no cartão ML, dia 10" ou "20 reais pela venda, receita na conta Corrente". Receitas precisam de conta, não cartão. Recorrências criam previsões mensais, sem marcar pagamento ou recebimento. Confira o tipo na prévia. Para corrigir, cancele e reenvie a mensagem completa. Sem áudios, fotos, transferências ou reembolsos.',
               )
             }}
           </p>

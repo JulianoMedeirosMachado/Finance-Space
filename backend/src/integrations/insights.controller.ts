@@ -2,7 +2,7 @@ import { Controller, Get, Inject, Param, Post, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthService } from '../auth/auth.service';
 import { InsightsService } from './insights.service';
-import { insightKindSchema } from './insights.schema';
+import { insightGenerationSchema, insightKindSchema } from './insights.schema';
 
 @Controller('insights')
 export class InsightsController {
@@ -23,6 +23,7 @@ export class InsightsController {
       user.id,
       insightKindSchema.parse(kind),
       user.language === 'en-US' ? 'en-US' : 'pt-BR',
+      insightGenerationSchema.parse(request.body ?? {}).retry,
     );
   }
 }

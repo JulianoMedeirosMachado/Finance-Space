@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { applyRowSecurity } from './security-migration';
 import { migrateIntegrations } from '../integrations/integration-migration';
 import { migrateInsights } from '../integrations/insights-migration';
+import { migrateTelegramEntryKinds } from '../integrations/telegram-entry-migration';
 
 export interface QueryExecutor {
   query<T extends Record<string, unknown> = Record<string, unknown>>(
@@ -159,6 +160,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy, QueryExec
       if (insights.length === 0) {
         await migrateInsights(database);
         await database.query('INSERT INTO schema_migrations(version) VALUES(5)');
+      }
+      const telegramEntries = await database.query(
+        'SELECT version FROM schema_migrations WHERE version=6',
+      );
+      if (telegramEntries.length === 0) {
+        await migrateTelegramEntryKinds(database);
+        await database.query('INSERT INTO schema_migrations(version) VALUES(6)');
       }
     });
   }
