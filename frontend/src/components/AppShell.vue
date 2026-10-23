@@ -25,6 +25,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Sparkles,
 } from 'lucide-vue-next';
 import { useAuthStore } from '../stores/auth';
 import { useFinanceStore } from '../stores/finance';
@@ -70,6 +71,7 @@ const links = computed(() => [
   { path: '/settlements', label: t('Acertos'), icon: Users },
   { path: '/goals', label: t('Metas'), icon: Target },
   { path: '/reports', label: t('Relatórios'), icon: ChartNoAxesCombined },
+  { path: '/insights', label: t('Insights da IA'), icon: Sparkles },
 ]);
 watch(
   dark,

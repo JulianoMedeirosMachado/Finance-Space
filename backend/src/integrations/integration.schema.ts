@@ -64,7 +64,11 @@ export const expenseProposalSchema = z
     accountId: z.uuid().nullable(),
     cardId: z.uuid().nullable(),
     categoryId: z.uuid().nullable(),
+    personId: z.uuid().nullable().default(null),
+    personMentioned: z.boolean().default(false),
     clarification: z.string().max(400).nullable(),
+    installments: z.number().int().min(1).max(600).default(1),
+    amountBasis: z.enum(['total', 'per_installment']).default('total'),
   })
   .strict();
 export type ExpenseProposal = z.infer<typeof expenseProposalSchema>;

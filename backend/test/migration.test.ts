@@ -69,7 +69,7 @@ test('legacy schema upgrades preserve data and goals and contributions survive s
     (await restarted.query('SELECT version FROM schema_migrations ORDER BY version')).map(
       (row) => row.version,
     ),
-    [1, 2, 3, 4],
+    [1, 2, 3, 4, 5],
   );
   assert.equal((await new AuthService(restarted).findUser(session.token)).language, 'en-US');
   await restarted.onModuleDestroy();

@@ -121,6 +121,7 @@ export const resourceSchemas = {
       ...entry,
       startMonth: monthSchema,
       count: z.number().int().min(2).max(600),
+      finalAmount: money.positive().optional(),
       active: z.boolean().default(true),
     })
     .strict(),

@@ -155,6 +155,10 @@ try {
   const { money, dateLabel, monthLabel } = await server.ssrLoadModule('/src/utils/format.ts');
   const { default: Settings } = await server.ssrLoadModule('/src/views/SettingsView.vue');
   const { default: Integrations } = await server.ssrLoadModule('/src/views/IntegrationsView.vue');
+  const { default: Insights } = await server.ssrLoadModule('/src/views/InsightsView.vue');
+  const { default: InsightsPanel } = await server.ssrLoadModule(
+    '/src/components/InsightsPanel.vue',
+  );
   const { default: Auth } = await server.ssrLoadModule('/src/views/AuthView.vue');
   const { default: Month } = await server.ssrLoadModule('/src/views/MonthView.vue');
   const { default: Reports } = await server.ssrLoadModule('/src/views/ReportsView.vue');
@@ -171,6 +175,51 @@ try {
   for (const match of integrationSource.matchAll(/\bt\(\s*'([^']+)'/g)) {
     assert.doesNotMatch(t(match[1]), /[çãõáéíóúêô]/i, `Untranslated integration text: ${match[1]}`);
   }
+  for (const file of ['../src/views/InsightsView.vue', '../src/components/InsightsPanel.vue']) {
+    const source = await readFile(new URL(file, import.meta.url), 'utf8');
+    for (const match of source.matchAll(/\bt\(\s*'([^']+)'/g)) {
+      assert.doesNotMatch(t(match[1]), /[çãõáéíóúêô]/i, `Untranslated insights text: ${match[1]}`);
+    }
+  }
+  const insightsOverview = {
+    enabled: false,
+    ready: false,
+    periods: {
+      weekly: { start: '2026-10-12', end: '2026-10-18' },
+      monthly: { start: '2026-09-01', end: '2026-09-30' },
+    },
+    reports: [],
+  };
+  const disabledInsights = await render(InsightsPanel, {
+    overview: insightsOverview,
+    kind: 'weekly',
+  });
+  assert.match(disabledInsights, /Your insights are disabled/);
+  assert.match(disabledInsights, /href="\/integrations"/);
+  assert.doesNotMatch(disabledInsights, /Generate analysis/);
+  const insightReport = {
+    id: 'insight',
+    kind: 'weekly',
+    period_start: '2026-10-12',
+    period_end: '2026-10-18',
+    state: 'ready',
+    report: {
+      title: malicious,
+      summary: malicious,
+      findings: [{ title: 'Budget', detail: malicious, suggestion: malicious }],
+    },
+    language: 'en-US',
+    model: 'model',
+    generated_at: '2026-10-19T12:00:00Z',
+  };
+  const renderedInsight = await render(InsightsPanel, {
+    overview: { ...insightsOverview, reports: [insightReport] },
+    kind: 'weekly',
+  });
+  assert.match(renderedInsight, /&lt;img/);
+  assert.doesNotMatch(renderedInsight, /<img src=x|<script>alert/);
+  assert.match(renderedInsight, /Analysis history/);
+  assert.doesNotMatch(renderedInsight, /[çãõáéíóúêô]/i);
   assert.equal(resources.value.accounts.title, 'Bank accounts');
   assert.equal(
     resources.value.transactions.fields.find((field) => field.key === 'nature').options[0].label,
@@ -193,6 +242,7 @@ try {
     Reports,
     IntegrationSettings,
     Integrations,
+    Insights,
   ]) {
     const translated = (await render(component)).replaceAll('Português (Brasil)', '');
     assert.doesNotMatch(
@@ -222,6 +272,10 @@ try {
   assert.match(integrationsPage, /<h1>Integração IA<\/h1>/);
   assert.match(integrationsPage, /href="\/settings"/);
   assert.match(integrationsPage, /integration-panel/);
+  assert.match(
+    await render(InsightsPanel, { overview: insightsOverview, kind: 'monthly' }),
+    /Seus insights estão desabilitados/,
+  );
   console.log(
     'Component checks passed: privacy, goals, allowance reconciliation, escaped XSS payloads, CSV protection and Portuguese/English pages and forms.',
   );

@@ -115,6 +115,13 @@ async function save() {
             )
           }}
         </p>
+        <p v-if="kind === 'installments'" class="field-hint">
+          {{
+            t(
+              'A última parcela pode ter um valor diferente para ajustes de centavos. Deixe vazio para usar o valor padrão.',
+            )
+          }}
+        </p>
         <div class="form-grid">
           <label
             v-for="field in fields"

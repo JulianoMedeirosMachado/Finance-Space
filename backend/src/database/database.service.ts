@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { z } from 'zod';
 import { applyRowSecurity } from './security-migration';
 import { migrateIntegrations } from '../integrations/integration-migration';
+import { migrateInsights } from '../integrations/insights-migration';
 
 export interface QueryExecutor {
   query<T extends Record<string, unknown> = Record<string, unknown>>(
@@ -151,6 +152,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy, QueryExec
       if (integrations.length === 0) {
         await migrateIntegrations(database);
         await database.query('INSERT INTO schema_migrations(version) VALUES(4)');
+      }
+      const insights = await database.query(
+        'SELECT version FROM schema_migrations WHERE version=5',
+      );
+      if (insights.length === 0) {
+        await migrateInsights(database);
+        await database.query('INSERT INTO schema_migrations(version) VALUES(5)');
       }
     });
   }

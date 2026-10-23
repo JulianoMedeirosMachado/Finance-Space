@@ -5,6 +5,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import { DatabaseService } from './database/database.service';
+import { backupInsights, restoreInsights } from './integrations/insights-backup';
 
 export function encryptBackup(content: string, password: string) {
   const salt = randomBytes(16);
@@ -61,6 +62,7 @@ async function run() {
           users: z.array(z.record(z.string(), z.unknown())),
           records: z.array(z.record(z.string(), z.unknown())),
           imports: z.array(z.record(z.string(), z.unknown())),
+          aiInsights: z.array(z.record(z.string(), z.unknown())).default([]),
         })
         .parse(JSON.parse(decoded));
       await database.transaction(async (transaction) => {
@@ -107,6 +109,7 @@ async function run() {
               ],
             );
           }
+          await restoreInsights(transaction, backup.aiInsights);
         } else {
           throw new Error(
             'Restore requires an empty database. Existing accounts will never be overwritten.',
@@ -121,6 +124,7 @@ async function run() {
         users: await transaction.query('SELECT * FROM users ORDER BY id'),
         records: await transaction.query('SELECT * FROM records ORDER BY id'),
         imports: await transaction.query('SELECT * FROM imports ORDER BY id'),
+        aiInsights: await backupInsights(transaction),
       }));
       const directory = resolve('../backups');
       await mkdir(directory, { recursive: true });

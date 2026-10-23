@@ -54,7 +54,10 @@ export function monthlyEntries(records: FinanceRecord[], month: string): Monthly
           sourceId: record.id,
           sourceKind: record.kind,
           description: String(data.description),
-          amount: Number(data.amount),
+          amount:
+            record.kind === 'installments' && current === Number(data.count)
+              ? Number(data.finalAmount ?? data.amount)
+              : Number(data.amount),
           nature: record.kind === 'income' ? 'income' : String(data.nature),
           month,
           date: dateInMonth(month, Number(data.day || 1)),
@@ -66,7 +69,10 @@ export function monthlyEntries(records: FinanceRecord[], month: string): Monthly
               : data.endMonth,
           remainingAmount:
             record.kind === 'installments'
-              ? (Number(data.count) - current) * Number(data.amount)
+              ? current < Number(data.count)
+                ? (Number(data.count) - current - 1) * Number(data.amount) +
+                  Number(data.finalAmount ?? data.amount)
+                : 0
               : undefined,
         });
       }
