@@ -1,4 +1,6 @@
 export const english: Record<string, string> = {
+  'Este link é pessoal: não compartilhe. A confirmação identifica uma conta do Telegram, não um dispositivo. Outras pessoas que apenas iniciam o bot não aparecem aqui.':
+    'This link is personal: do not share it. Confirmation identifies a Telegram account, not a device. Other people who simply start the bot do not appear here.',
   'Integração IA': 'AI integration',
   'Configure sua inteligência artificial e conecte o Telegram.':
     'Configure your AI and connect Telegram.',

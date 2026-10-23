@@ -217,6 +217,13 @@ async function disconnectTelegram() {
             <p>
               {{
                 t(
+                  'Este link é pessoal: não compartilhe. A confirmação identifica uma conta do Telegram, não um dispositivo. Outras pessoas que apenas iniciam o bot não aparecem aqui.',
+                )
+              }}
+            </p>
+            <p>
+              {{
+                t(
                   'Gere um link, abra o bot, toque em Iniciar e volte aqui para atualizar e confirmar sua identidade. O link expira em 10 minutos.',
                 )
               }}

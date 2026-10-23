@@ -357,7 +357,7 @@ export class IntegrationService {
     }).format(Number(data.amount) / 100);
     return {
       chatId: settings.telegram_user_id!,
-      text: `${english ? 'Review expense' : 'Confira a despesa'}\n${data.description}\n${amount}\n${english ? 'Date' : 'Data'}: ${data.date}\n${english ? 'Reporting month' : 'Competência'}: ${data.month}\n${data.cardId ? (english ? 'Card' : 'Cartão') : english ? 'Account' : 'Conta'}: ${name(data.cardId || data.accountId)}\n${english ? 'Category' : 'Categoria'}: ${name(data.categoryId)}\n\n${english ? 'Expires in 24 hours. To correct, cancel and resend a complete message.' : 'Expira em 24 horas. Para corrigir, cancele e reenvie uma mensagem completa.'}`,
+      text: `${english ? 'Review the AI proposal' : 'Confira a proposta da IA'}\n${data.description}\n${amount}\n${english ? 'Date' : 'Data'}: ${data.date}\n${english ? 'Reporting month' : 'Competência'}: ${data.month}\n${data.cardId ? (english ? 'Suggested card' : 'Cartão sugerido') : english ? 'Suggested account' : 'Conta sugerida'}: ${name(data.cardId || data.accountId)}\n${english ? 'Suggested category' : 'Categoria sugerida'}: ${name(data.categoryId)}\n\n${english ? 'Names and abbreviations may have been interpreted. Check the selected account/card before confirming. Expires in 24 hours. To correct, cancel and resend a complete message.' : 'Nomes e siglas podem ter sido interpretados. Confira a conta/cartão escolhido antes de confirmar. Expira em 24 horas. Para corrigir, cancele e reenvie uma mensagem completa.'}`,
       buttons: [
         [
           { text: english ? 'Confirm' : 'Confirmar', callback_data: `confirm:${draft.id}` },

@@ -104,6 +104,12 @@ test('AI adapter uses fixed HTTPS endpoints, minimal catalogs, JSON validation a
     assert.equal(called, 'https://api.deepseek.com/chat/completions');
     assert.ok(!JSON.stringify(request).includes('987654321'));
     assert.ok(!JSON.stringify(request.messages).includes(credential.apiKey));
+    const instructions = request.messages[0].content;
+    assert.match(instructions, /recognize abbreviations, initials, nicknames/);
+    assert.match(instructions, /"ML", "MP" or "Mercado Livre"/);
+    assert.match(instructions, /prefer an exact match/);
+    assert.match(instructions, /Distinguish merchants from payment instruments/);
+    assert.match(instructions, /Only use exact IDs from the catalog/);
     output = JSON.stringify({ amount: -100 });
     await assert.rejects(ai.interpret(credential, 'bad input', [], 'English'));
     globalThis.fetch = async () => new Response(credential.apiKey, { status: 401 });
@@ -234,10 +240,18 @@ test(
       assert.notEqual(ciphertext, aliceKey);
 
       async function link(userId: string, telegramId: number, updateId: number) {
+        const otherUserId = userId === alice.id ? bob.id : alice.id;
+        const otherStatus = await service().status(otherUserId);
         const url = await service().startLink(userId);
         const token = new URL(url.url).searchParams.get('start')!;
+        await service().handle(message(updateId + 1000, 404, '/start'));
+        assert.equal((await service().status(userId)).candidate, null);
         await service().handle(message(updateId, telegramId, `/start ${token}`));
         assert.equal((await service().status(userId)).telegram, null);
+        assert.equal((await service().status(userId)).candidate?.id, String(telegramId));
+        assert.deepEqual(await service().status(otherUserId), otherStatus);
+        await assert.rejects(service().confirmLink(otherUserId, String(telegramId)));
+        await service().handle(message(updateId + 2000, 404, `/start ${token}`));
         assert.equal((await service().status(userId)).candidate?.id, String(telegramId));
         await assert.rejects(service().confirmLink(userId, '999'));
         await service().confirmLink(userId, String(telegramId));
@@ -254,7 +268,7 @@ test(
       );
 
       const finance = new FinanceService(database);
-      const card = await finance.save(alice.id, 'cards', { name: 'Market card' });
+      const card = await finance.save(alice.id, 'cards', { name: 'Mercado Pago' });
       const category = await finance.save(alice.id, 'categories', { name: 'Hygiene' });
       const bobAccount = await finance.save(bob.id, 'accounts', {
         name: 'Checking',
@@ -271,10 +285,12 @@ test(
         clarification: null,
       };
       const proposal = await service().handle(
-        message(10, 101, 'Paper 22,90 on market card for November'),
+        message(10, 101, 'Paper 22,90 on ML card for November'),
       );
       assert.equal(ai.calls[0].apiKey, aliceKey);
       assert.match(proposal?.text || '', /2026-11/);
+      assert.match(proposal?.text || '', /Suggested card: Mercado Pago/);
+      assert.match(proposal?.text || '', /Names and abbreviations may have been interpreted/);
       assert.equal(
         (await finance.list(alice.id)).filter((record) => record.kind === 'transactions').length,
         0,
