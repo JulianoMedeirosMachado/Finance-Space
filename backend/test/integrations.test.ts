@@ -574,7 +574,7 @@ test(
       assert.equal(telegram.sent.length, sentBeforeDisconnect);
       assert.equal(
         (await database.query('SELECT state FROM telegram_updates WHERE update_id=99'))[0].state,
-        'done',
+        'failed',
       );
       await service().handle(callback(32, 101, action));
       assert.equal(

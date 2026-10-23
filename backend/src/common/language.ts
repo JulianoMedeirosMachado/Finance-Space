@@ -44,6 +44,8 @@ const english: Record<string, string> = {
     'Configure your AI on the website before using the bot.',
   'Limite da IA atingido. Aguarde e tente novamente.':
     'AI request limit reached. Wait and try again.',
+  'Limite de mensagens do Telegram atingido. Aguarde antes de tentar novamente.':
+    'Telegram message limit reached. Wait before trying again.',
   'Desconecte o Telegram atual antes de vincular outro.':
     'Disconnect the current Telegram account before connecting another one.',
   'Vínculo inválido ou expirado. Gere um novo link.':

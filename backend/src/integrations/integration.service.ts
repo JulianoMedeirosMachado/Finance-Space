@@ -16,6 +16,7 @@ import { SecretVault } from './secret-vault';
 import { TelegramClient } from './telegram.client';
 import { buildTelegramEntry, TelegramDraft } from './telegram-entry';
 import { addMonths } from '../finance/calculations';
+import { TelegramContext } from './telegram-context';
 
 @Injectable()
 export class IntegrationService {
@@ -124,14 +125,15 @@ export class IntegrationService {
     return result;
   }
 
-  private async reserveAiCall(userId: string) {
+  private async reserveAiCall(userId: string, binding?: { actorId: string; version: number }) {
     const permitted = await this.repository.database.forUser(userId, (database) =>
       database.query(
         `UPDATE integration_settings
       SET ai_last_at=NOW(),ai_day=CURRENT_DATE,ai_count=CASE WHEN ai_day=CURRENT_DATE THEN ai_count+1 ELSE 1 END
       WHERE user_id=$1 AND (ai_last_at IS NULL OR ai_last_at<NOW()-INTERVAL '10 seconds')
+      AND ($2::text IS NULL OR (telegram_user_id=$2 AND telegram_link_version=$3))
       AND (ai_day IS NULL OR ai_day<>CURRENT_DATE OR ai_count<100) RETURNING user_id`,
-        [userId],
+        [userId, binding?.actorId ?? null, binding?.version ?? null],
       ),
     );
     if (permitted.length === 0) {
@@ -163,7 +165,7 @@ export class IntegrationService {
   async confirmLink(userId: string, candidateId: string) {
     await this.repository.database.forUser(userId, async (database) => {
       const changed = await database.query(
-        `UPDATE integration_settings SET telegram_user_id=candidate_id,telegram_name=candidate_name,
+        `UPDATE integration_settings SET telegram_user_id=candidate_id,telegram_name=candidate_name,telegram_link_version=telegram_link_version+1,
         link_hash=NULL,link_expires_at=NULL,candidate_id=NULL,candidate_name=NULL
         WHERE user_id=$1 AND candidate_id=$2 AND link_expires_at>NOW() AND telegram_user_id IS NULL RETURNING user_id`,
         [userId, candidateId],
@@ -175,7 +177,11 @@ export class IntegrationService {
     return this.status(userId);
   }
 
-  async handle(update: TelegramUpdate): Promise<BotReply | null> {
+  async handle(
+    update: TelegramUpdate,
+    receivedContext?: TelegramContext,
+  ): Promise<BotReply | null> {
+    const context = receivedContext ?? (await this.repository.telegramContext(update));
     const message = update.message || update.callback_query?.message;
     const actor = update.callback_query?.from || update.message?.from;
     let reply: BotReply | null = null;
@@ -183,17 +189,25 @@ export class IntegrationService {
       message?.chat.type === 'private' &&
       actor &&
       !actor.is_bot &&
-      String(message.chat.id) === String(actor.id)
+      String(message.chat.id) === String(actor.id) &&
+      context?.actorId === String(actor.id)
     ) {
       const chatId = String(actor.id);
       const text = update.message?.text || '';
       const start = /^\/start ([A-Za-z0-9_-]{32})$/.exec(text);
-      if (start) {
+      if (start && context.ownerId && context.linkHash === hashToken(start[1])) {
         const linked = await this.repository.database.query(
           `UPDATE integration_settings SET candidate_id=$2,candidate_name=$3
           WHERE link_hash=$1 AND link_expires_at>NOW() AND telegram_user_id IS NULL
+          AND user_id=$4 AND telegram_link_version=$5
           AND (candidate_id IS NULL OR candidate_id=$2) RETURNING user_id`,
-          [hashToken(start[1]), chatId, actor.first_name || chatId],
+          [
+            context.linkHash,
+            chatId,
+            actor.first_name || chatId,
+            context.ownerId,
+            context.bindingVersion,
+          ],
         );
         reply = {
           chatId,
@@ -205,8 +219,9 @@ export class IntegrationService {
         const rows = await this.repository.database.query<
           IntegrationSettings & { language: string }
         >(
-          `SELECT i.*,u.language FROM integration_settings i JOIN users u ON u.id=i.user_id WHERE i.telegram_user_id=$1`,
-          [chatId],
+          `SELECT i.*,u.language FROM integration_settings i JOIN users u ON u.id=i.user_id
+          WHERE i.telegram_user_id=$1 AND i.user_id=$2 AND i.telegram_link_version=$3`,
+          [chatId, context.linkHash ? null : context.ownerId, context.bindingVersion],
         );
         if (rows[0]) {
           const settings = rows[0];
@@ -219,11 +234,16 @@ export class IntegrationService {
                 english,
               );
             } else if (text === '/disconnect') {
-              await this.repository.disconnect(settings.user_id);
-              reply = {
-                chatId,
-                text: english ? 'Telegram disconnected.' : 'Telegram desconectado.',
-              };
+              const disconnected = await this.repository.disconnect(
+                settings.user_id,
+                settings.telegram_link_version,
+              );
+              reply = disconnected
+                ? {
+                    chatId,
+                    text: english ? 'Telegram disconnected.' : 'Telegram desconectado.',
+                  }
+                : null;
             } else if (text.startsWith('/') || !text || text.length > 1500) {
               reply = {
                 chatId,
@@ -248,8 +268,9 @@ export class IntegrationService {
           }
           if (reply && text !== '/disconnect') {
             reply.ownerId = settings.user_id;
+            reply.bindingVersion = settings.telegram_link_version;
           }
-        } else {
+        } else if (!context.ownerId) {
           reply = {
             chatId,
             text: 'Conecte sua conta em Configurações → Integração IA no Finance Space. / Connect your account in Settings → AI integration in Finance Space.',
@@ -260,11 +281,17 @@ export class IntegrationService {
     return reply;
   }
 
-  async canDeliver(reply: BotReply) {
+  async canDeliver(reply: BotReply, context?: TelegramContext) {
     let permitted = true;
-    if (reply.ownerId) {
+    if (context && reply.chatId !== context.actorId) {
+      permitted = false;
+    } else if (reply.ownerId) {
       const settings = await this.repository.settings(reply.ownerId);
-      permitted = settings?.telegram_user_id === reply.chatId;
+      permitted =
+        settings?.telegram_user_id === reply.chatId &&
+        settings.telegram_link_version === reply.bindingVersion &&
+        (!context ||
+          (context.ownerId === reply.ownerId && context.bindingVersion === reply.bindingVersion));
     }
     return permitted;
   }
@@ -304,6 +331,7 @@ export class IntegrationService {
           const current = await this.repository.settings(userId, database);
           if (
             current?.telegram_user_id === settings.telegram_user_id &&
+            current.telegram_link_version === settings.telegram_link_version &&
             current.encrypted_key === settings.encrypted_key
           ) {
             await this.finance.validateLinks(userId, data, database);
@@ -342,7 +370,10 @@ export class IntegrationService {
     let proposal: EntryProposal;
     if (references.length <= 300) {
       const credential = this.credential(settings);
-      await this.reserveAiCall(settings.user_id);
+      await this.reserveAiCall(settings.user_id, {
+        actorId: settings.telegram_user_id!,
+        version: settings.telegram_link_version,
+      });
       proposal = await this.ai.interpret(
         credential,
         text,
@@ -447,6 +478,7 @@ export class IntegrationService {
           draft?.state === 'pending' &&
           draft.valid &&
           current?.telegram_user_id === settings.telegram_user_id &&
+          current.telegram_link_version === settings.telegram_link_version &&
           current.encrypted_key
         ) {
           if (match[1] === 'confirm') {

@@ -41,6 +41,8 @@ async function bootstrap() {
     rateLimit({
       windowMs: 60000,
       limit: 240,
+      skip: (request: Request) =>
+        request.originalUrl.split('?')[0] === '/api/integrations/telegram/webhook',
       standardHeaders: 'draft-8',
       legacyHeaders: false,
       message: (request: Request) => ({
@@ -50,6 +52,10 @@ async function bootstrap() {
         ),
       }),
     }),
+  );
+  app.use(
+    '/api/integrations/telegram/webhook',
+    rateLimit({ windowMs: 60000, limit: 1200, standardHeaders: 'draft-8', legacyHeaders: false }),
   );
   app.use(
     '/api/auth',
