@@ -1,0 +1,18 @@
+{
+  "id": "/",
+  "name": "Finance Space",
+  "short_name": "Finance Space",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#1f2430",
+  "background_color": "#1f2430",
+  "icons": [
+    {
+      "src": "/app-icon.png",
+      "sizes": "600x600",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

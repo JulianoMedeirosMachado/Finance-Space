@@ -324,6 +324,39 @@ test(
       assert.equal((await request('/auth/logout', 'POST', {}, cookie)).status, 201);
       assert.equal((await request('/auth/me', 'GET', undefined, cookie)).status, 401);
       assert.equal((await fetch(origin + '/login')).status, 200);
+      const manifestResponse = await fetch(origin + '/manifest.webmanifest');
+      assert.equal(manifestResponse.status, 200);
+      assert.match(
+        manifestResponse.headers.get('content-type') || '',
+        /manifest\+json|application\/json/,
+      );
+      const manifest = (await manifestResponse.json()) as {
+        id: string;
+        start_url: string;
+        scope: string;
+        display: string;
+        icons: { src: string }[];
+      };
+      assert.equal(manifest.id, '/');
+      assert.equal(manifest.scope, '/');
+      assert.equal(manifest.start_url, '/dashboard');
+      assert.equal(manifest.display, 'standalone');
+      for (const path of [
+        '/dashboard',
+        '/login',
+        '/month',
+        '/transactions',
+        '/goals',
+        '/settings',
+      ]) {
+        assert.ok(new URL(path, origin).pathname.startsWith(manifest.scope));
+        const page = await fetch(origin + path);
+        assert.equal(page.status, 200);
+        assert.match(await page.text(), /rel="manifest" href="\/manifest.webmanifest"/);
+      }
+      const icon = await fetch(new URL(manifest.icons[0].src, origin));
+      assert.equal(icon.status, 200);
+      assert.match(icon.headers.get('content-type') || '', /image\/png/);
     } finally {
       const closed = new Promise<void>((resolve) => child.once('exit', () => resolve()));
       child.kill();

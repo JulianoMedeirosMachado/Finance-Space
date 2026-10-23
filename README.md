@@ -36,6 +36,12 @@ For optional settings, copy `backend/.env.example` to `backend/.env` and edit it
 
 Open **Configurações → Idioma da conta** (or **Settings → Account language**) and select **Português (Brasil)** or **English**. The interface updates immediately after saving. The preference belongs to the account, persists across application/computer restarts and is included in encrypted backups. Existing accounts default to Brazilian Portuguese. The sign-in/registration page also has a language selector; signing in restores the account's saved language.
 
+## iPhone Home Screen
+
+Open the deployed HTTPS site in Safari, choose **Add to Home Screen** and enable **Open as Web App** when offered. The manifest declares standalone display, a `/dashboard` launch URL and a root `/` scope, covering internal pages including sign-in and settings. After changing these settings, remove the old Home Screen icon and add it again to refresh the installed configuration; you may need to sign in again. Removing the icon does not delete server-side account data.
+
+This configuration does not provide offline access, push notifications or prevent hosting idle suspension. External sites can still open browser controls. Actual standalone navigation must also be verified on an iPhone after deployment.
+
 ## Data entry and exports
 
 Use the application screens to enter records and **Configurações → Histórico financeiro** to browse archived records. CSV and JSON exports are available. There is currently no upload/import endpoint.
