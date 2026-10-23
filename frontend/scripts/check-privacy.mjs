@@ -181,6 +181,102 @@ try {
       assert.doesNotMatch(t(match[1]), /[çãõáéíóúêô]/i, `Untranslated insights text: ${match[1]}`);
     }
   }
+  {
+    let settings;
+    await render({
+      setup() {
+        settings = IntegrationSettings.setup({}, { expose() {} });
+        return () => null;
+      },
+    });
+    const previousFetch = globalThis.fetch;
+    const requests = [];
+    let fail = false;
+    let release;
+    let pause = false;
+    let saved = {
+      aiAvailable: true,
+      telegramAvailable: true,
+      provider: 'deepseek',
+      model: 'test-model',
+      hasKey: true,
+      insightsEnabled: false,
+      telegram: null,
+      candidate: null,
+    };
+    const renderSettings = () => render({ ...IntegrationSettings, setup: () => settings });
+    try {
+      globalThis.fetch = async (url, options) => {
+        requests.push({ url: String(url), method: options.method, body: options.body });
+        if (options.method === 'PATCH') {
+          assert.equal(String(url), '/api/integrations/insights');
+          if (pause) {
+            await new Promise((resolve) => {
+              release = resolve;
+            });
+          }
+          if (fail) {
+            return new Response(JSON.stringify({ message: 'Simulated failure' }), { status: 500 });
+          }
+          saved = { ...saved, insightsEnabled: JSON.parse(options.body).enabled };
+        } else {
+          assert.equal(String(url), '/api/integrations');
+        }
+        return new Response(JSON.stringify(saved), { status: 200 });
+      };
+      await settings.refresh();
+      assert.equal(settings.insightsConsent.value, false);
+      assert.equal(settings.insightsChanged.value, false);
+      settings.insightsConsent.value = true;
+      assert.equal(settings.status.value.insightsEnabled, false);
+      assert.equal(requests.length, 1);
+      const pending = await renderSettings();
+      assert.match(pending, /Unsaved change/);
+      assert.match(pending, /Confirm insights preference/);
+      assert.match(pending, /integration-status[^>]*>Disabled/);
+      assert.match(pending, /integration-consent-title/);
+      await settings.saveInsights();
+      assert.equal(saved.insightsEnabled, true);
+      assert.equal(settings.insightsChanged.value, false);
+      assert.equal(requests.length, 2);
+      await settings.saveInsights();
+      assert.equal(requests.length, 2);
+      settings.insightsConsent.value = false;
+      assert.equal(saved.insightsEnabled, true);
+      fail = true;
+      await settings.saveInsights();
+      assert.equal(saved.insightsEnabled, true);
+      assert.equal(settings.status.value.insightsEnabled, true);
+      assert.equal(settings.insightsChanged.value, true);
+      assert.equal(settings.error.value, 'Simulated failure');
+      fail = false;
+      pause = true;
+      const saving = settings.saveInsights();
+      assert.equal(settings.busy.value, true);
+      const count = requests.length;
+      await settings.saveInsights();
+      assert.equal(requests.length, count);
+      release();
+      await saving;
+      assert.equal(saved.insightsEnabled, false);
+      assert.equal(settings.insightsChanged.value, false);
+      saved = { ...saved, hasKey: false };
+      await settings.refresh();
+      settings.insightsConsent.value = true;
+      const beforeBlocked = requests.length;
+      await settings.saveInsights();
+      assert.equal(requests.length, beforeBlocked);
+      assert.equal(saved.insightsEnabled, false);
+      assert.ok(
+        requests.every(
+          (request) =>
+            request.url === '/api/integrations' || request.url === '/api/integrations/insights',
+        ),
+      );
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  }
   const insightsOverview = {
     enabled: false,
     ready: false,
@@ -285,6 +381,59 @@ try {
   assert.match(integrationsPage, /<h1>Integração IA<\/h1>/);
   assert.match(integrationsPage, /href="\/settings"/);
   assert.match(integrationsPage, /integration-panel/);
+  const shellSource = await readFile(
+    new URL('../src/components/AppShell.vue', import.meta.url),
+    'utf8',
+  );
+  assert.match(shellSource, /@click="finance\.refresh\(\)"/);
+  assert.match(shellSource, /:disabled="finance\.loading"/);
+  assert.match(
+    shellSource,
+    /:aria-label="finance\.loading \? t\('Atualizando dados\.\.\.'\) : t\('Atualizar dados'\)"/,
+  );
+  assert.doesNotMatch(shellSource, /location\.reload|router\.go\(0\)/);
+  const previousFetch = globalThis.fetch;
+  const previousFinance = {
+    records: finance.records,
+    dashboard: finance.dashboard,
+    month: finance.month,
+  };
+  const previousRoute = router.currentRoute.value.fullPath;
+  const previousPrivacy = privacy.hidden;
+  const requests = [];
+  try {
+    globalThis.fetch = async (url, options) => {
+      requests.push(String(url));
+      assert.equal(options.method, undefined);
+      const data = String(url).includes('/records')
+        ? [
+            {
+              id: 'telegram-record',
+              kind: 'transactions',
+              version: 1,
+              data: { description: 'Telegram purchase', amount: 2290 },
+            },
+          ]
+        : { ...previousFinance.dashboard, expenses: 2290 };
+      return new Response(JSON.stringify(data), { status: 200 });
+    };
+    const pending = finance.refresh();
+    assert.equal(finance.loading, true);
+    await pending;
+    assert.equal(finance.loading, false);
+    assert.equal(finance.records[0].id, 'telegram-record');
+    assert.equal(finance.dashboard.expenses, 2290);
+    assert.equal(finance.month, previousFinance.month);
+    assert.equal(router.currentRoute.value.fullPath, previousRoute);
+    assert.equal(privacy.hidden, previousPrivacy);
+    assert.deepEqual(requests, [
+      '/api/finance/records',
+      `/api/finance/dashboard?month=${previousFinance.month}`,
+    ]);
+  } finally {
+    globalThis.fetch = previousFetch;
+    finance.$patch(previousFinance);
+  }
   assert.match(
     await render(InsightsPanel, { overview: insightsOverview, kind: 'monthly' }),
     /Seus insights estão desabilitados/,

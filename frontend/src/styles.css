@@ -328,6 +328,14 @@ nav a.router-link-active:before {
   color: var(--text);
   background: var(--panel-hover);
 }
+.refresh-spinning {
+  animation: refresh-rotation 1s linear infinite;
+}
+@keyframes refresh-rotation {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .theme-button {
   border-left: 1px solid var(--line);
   border-radius: 0;
