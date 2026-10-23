@@ -26,6 +26,7 @@ import {
   ChevronRight,
   FileText,
   Sparkles,
+  RefreshCw,
 } from 'lucide-vue-next';
 import { useAuthStore } from '../stores/auth';
 import { useFinanceStore } from '../stores/finance';
@@ -192,6 +193,16 @@ async function logout() {
               <ChevronRight :size="17" />
             </button>
           </div>
+          <button
+            class="icon-button"
+            :title="finance.loading ? t('Atualizando dados...') : t('Atualizar dados')"
+            :aria-label="finance.loading ? t('Atualizando dados...') : t('Atualizar dados')"
+            :aria-busy="finance.loading"
+            :disabled="finance.loading"
+            @click="finance.refresh()"
+          >
+            <RefreshCw :size="20" :class="{ 'refresh-spinning': finance.loading }" />
+          </button>
           <button
             class="icon-button theme-button"
             :aria-label="dark ? t('Ativar tema claro') : t('Ativar tema escuro')"

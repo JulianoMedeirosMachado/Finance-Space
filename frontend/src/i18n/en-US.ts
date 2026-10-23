@@ -1,4 +1,13 @@
 export const english: Record<string, string> = {
+  Ativados: 'Enabled',
+  Desativados: 'Disabled',
+  'Marcar ou desmarcar não salva a preferência. Confirme a alteração no botão abaixo.':
+    'Checking or unchecking does not save the preference. Confirm the change using the button below.',
+  'Confirmar preferência dos insights': 'Confirm insights preference',
+  'Alteração não salva. A preferência atual permanece em vigor até você confirmar.':
+    'Unsaved change. The current preference remains in effect until you confirm.',
+  'Atualizar dados': 'Refresh data',
+  'Atualizando dados...': 'Refreshing data...',
   'Sua IA, sua conta. Use o bot central para preparar lançamentos e confirme antes de cadastrar.':
     'Your AI, your account. Use the central bot to prepare entries and confirm before saving.',
   'Envie despesas, parcelamentos, assinaturas mensais ou receitas por texto. Ex.: "Streaming 30 recorrente no cartão ML, dia 10" ou "20 reais pela venda, receita na conta Corrente". Receitas precisam de conta, não cartão. Recorrências criam previsões mensais, sem marcar pagamento ou recebimento. Confira o tipo na prévia. Para corrigir, cancele e reenvie a mensagem completa. Sem áudios, fotos, transferências ou reembolsos.':

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { Bot, KeyRound } from 'lucide-vue-next';
 import { api } from '../services/api';
 import { t } from '../i18n';
@@ -19,10 +19,19 @@ const provider = ref<'deepseek' | 'openrouter'>('deepseek');
 const model = ref('');
 const apiKey = ref('');
 const consent = ref(false);
+const insightsConsent = ref(false);
+const insightsChanged = computed(() =>
+  Boolean(status.value && insightsConsent.value !== status.value.insightsEnabled),
+);
 const busy = ref(false);
 const error = ref('');
 const notice = ref('');
 const link = ref('');
+
+function setStatus(value: IntegrationStatus) {
+  status.value = value;
+  insightsConsent.value = value.insightsEnabled;
+}
 
 async function run(operation: () => Promise<void>) {
   busy.value = true;
@@ -39,7 +48,7 @@ async function run(operation: () => Promise<void>) {
 }
 
 async function refresh() {
-  status.value = await api<IntegrationStatus>('/integrations');
+  setStatus(await api<IntegrationStatus>('/integrations'));
 }
 
 onMounted(() =>
@@ -52,15 +61,17 @@ onMounted(() =>
 
 async function saveAi() {
   await run(async () => {
-    status.value = await api<IntegrationStatus>('/integrations/ai', {
-      method: 'PUT',
-      body: JSON.stringify({
-        provider: provider.value,
-        model: model.value,
-        consent: consent.value,
-        ...(apiKey.value ? { apiKey: apiKey.value } : {}),
+    setStatus(
+      await api<IntegrationStatus>('/integrations/ai', {
+        method: 'PUT',
+        body: JSON.stringify({
+          provider: provider.value,
+          model: model.value,
+          consent: consent.value,
+          ...(apiKey.value ? { apiKey: apiKey.value } : {}),
+        }),
       }),
-    });
+    );
     apiKey.value = '';
     notice.value = t('Configuração da IA salva.');
   });
@@ -75,10 +86,11 @@ async function testAi() {
 
 async function removeAi() {
   await run(async () => {
-    status.value = await api<IntegrationStatus>('/integrations/ai', { method: 'DELETE' });
+    setStatus(await api<IntegrationStatus>('/integrations/ai', { method: 'DELETE' }));
     apiKey.value = '';
     model.value = '';
     consent.value = false;
+    insightsConsent.value = false;
     notice.value = t('Chave removida. Os rascunhos pendentes foram cancelados.');
   });
 }
@@ -93,10 +105,12 @@ async function connectTelegram() {
 
 async function confirmTelegram() {
   await run(async () => {
-    status.value = await api<IntegrationStatus>('/integrations/telegram/confirm', {
-      method: 'POST',
-      body: JSON.stringify({ candidateId: status.value?.candidate?.id }),
-    });
+    setStatus(
+      await api<IntegrationStatus>('/integrations/telegram/confirm', {
+        method: 'POST',
+        body: JSON.stringify({ candidateId: status.value?.candidate?.id }),
+      }),
+    );
     link.value = '';
     notice.value = t('Telegram conectado. Envie uma despesa para começar.');
   });
@@ -104,23 +118,29 @@ async function confirmTelegram() {
 
 async function disconnectTelegram() {
   await run(async () => {
-    status.value = await api<IntegrationStatus>('/integrations/telegram', { method: 'DELETE' });
+    setStatus(await api<IntegrationStatus>('/integrations/telegram', { method: 'DELETE' }));
     link.value = '';
     notice.value = t('Telegram desconectado.');
   });
 }
 
-async function changeInsights(event: Event) {
-  const checkbox = event.target as HTMLInputElement;
-  const previous = status.value!.insightsEnabled;
-  await run(async () => {
-    status.value = await api<IntegrationStatus>('/integrations/insights', {
-      method: 'PATCH',
-      body: JSON.stringify({ enabled: checkbox.checked }),
+async function saveInsights() {
+  if (
+    !busy.value &&
+    insightsChanged.value &&
+    status.value &&
+    (!insightsConsent.value || (status.value.hasKey && status.value.aiAvailable))
+  ) {
+    await run(async () => {
+      setStatus(
+        await api<IntegrationStatus>('/integrations/insights', {
+          method: 'PATCH',
+          body: JSON.stringify({ enabled: insightsConsent.value }),
+        }),
+      );
+      notice.value = t('Preferência dos insights atualizada.');
     });
-    notice.value = t('Preferência dos insights atualizada.');
-  });
-  checkbox.checked = status.value?.insightsEnabled ?? previous;
+  }
 }
 </script>
 
@@ -189,11 +209,11 @@ async function changeInsights(event: Event) {
             }}
           </p>
           <label class="integration-consent"
-            ><input v-model="consent" type="checkbox" required />{{
+            ><input v-model="consent" type="checkbox" required /><span>{{
               t(
                 'Autorizo enviar minhas mensagens e os nomes das minhas contas, cartões e categorias ao provedor de IA selecionado. As mensagens também passam pelo Telegram.',
               )
-            }}</label
+            }}</span></label
           >
           <div class="integration-actions">
             <button class="button primary" type="submit" :disabled="!status.aiAvailable">
@@ -218,16 +238,30 @@ async function changeInsights(event: Event) {
           </div>
         </fieldset>
       </form>
-      <div class="integration-telegram">
-        <h3>{{ t('Insights da IA') }}</h3>
+      <form class="integration-telegram" @submit.prevent="saveInsights">
+        <div class="integration-section-heading">
+          <h3>{{ t('Insights da IA') }}</h3>
+          <span class="integration-status" :class="{ enabled: status.insightsEnabled }">
+            {{ status.insightsEnabled ? t('Ativados') : t('Desativados') }}
+          </span>
+        </div>
         <label class="integration-consent">
           <input
+            v-model="insightsConsent"
             type="checkbox"
-            :checked="status.insightsEnabled"
             :disabled="busy || (!status.insightsEnabled && (!status.hasKey || !status.aiAvailable))"
-            @change="changeInsights"
+            aria-describedby="insights-confirmation-hint"
           />
-          {{ t('Permitir análise financeira para insights semanais e mensais.') }}
+          <span>
+            <span class="integration-consent-title">{{
+              t('Permitir análise financeira para insights semanais e mensais.')
+            }}</span>
+            <span id="insights-confirmation-hint" class="integration-consent-description">{{
+              t(
+                'Marcar ou desmarcar não salva a preferência. Confirme a alteração no botão abaixo.',
+              )
+            }}</span>
+          </span>
         </label>
         <p class="field-hint">
           {{
@@ -246,10 +280,26 @@ async function changeInsights(event: Event) {
         <p v-if="!status.hasKey" class="field-hint">
           {{ t('Salve uma chave de IA para habilitar os insights.') }}
         </p>
-        <RouterLink to="/insights" class="button secondary">{{
-          t('Abrir insights da IA')
-        }}</RouterLink>
-      </div>
+        <div class="integration-actions">
+          <button
+            class="button primary"
+            type="submit"
+            :disabled="
+              busy ||
+              !insightsChanged ||
+              (insightsConsent && (!status.hasKey || !status.aiAvailable))
+            "
+          >
+            {{ t('Confirmar preferência dos insights') }}
+          </button>
+          <RouterLink to="/insights" class="button secondary">{{
+            t('Abrir insights da IA')
+          }}</RouterLink>
+        </div>
+        <p v-if="insightsChanged" class="field-hint" role="status">
+          {{ t('Alteração não salva. A preferência atual permanece em vigor até você confirmar.') }}
+        </p>
+      </form>
       <div class="integration-telegram">
         <h3>Telegram</h3>
         <p class="field-hint">
