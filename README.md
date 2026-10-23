@@ -31,6 +31,7 @@ For optional settings, copy `backend/.env.example` to `backend/.env` and edit it
 - Responsible people, third-party settlements, categories, historical records, CSV exports and a complete per-account JSON export.
 - Responsive layouts and persisted theme preference.
 - Account language preference (Brazilian Portuguese or English), saved on the server and restored at sign-in. Translated navigation, forms, messages, charts and CSV labels, with locale-aware dates and numbers. Currency remains BRL; user-entered content is never translated.
+- Optional shared Telegram bot with per-user DeepSeek/OpenRouter credentials, two-step account linking and expense drafts requiring explicit confirmation.
 
 ## Language
 
@@ -45,6 +46,49 @@ This configuration does not provide offline access, push notifications or preven
 ## Data entry and exports
 
 Use the application screens to enter records and **Configurações → Histórico financeiro** to browse archived records. CSV and JSON exports are available. There is currently no upload/import endpoint.
+
+## AI and Telegram
+
+This integration is optional. The application remains usable without any AI/bot secrets. There is one centrally administered Telegram bot; each account supplies and pays for its own AI provider key. No provider SDK, separate bot process or polling service is required.
+
+### Server setup (once per deployment)
+
+1. Create a bot using Telegram's official **@BotFather**, obtain its token and note its username without `@`. Do not paste real tokens into source files, Git, screenshots or public chats.
+2. Set these private environment variables on the backend/Render service:
+
+   | Variable                     | Value                                                                  |
+   | ---------------------------- | ---------------------------------------------------------------------- |
+   | `INTEGRATION_ENCRYPTION_KEY` | Canonical base64 encoding of 32 cryptographically random bytes         |
+   | `TELEGRAM_BOT_TOKEN`         | BotFather token                                                        |
+   | `TELEGRAM_BOT_USERNAME`      | Bot username without `@`                                               |
+   | `TELEGRAM_WEBHOOK_SECRET`    | Independently generated random URL-safe secret, at least 32 characters |
+   | `APP_ORIGIN`                 | The single public HTTPS origin of this deployment                      |
+
+   Generate the encryption key in your own private terminal with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`. Generate a separate webhook secret with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`. Save both in a password manager. The encryption key must remain stable across restarts; replacing it makes existing AI keys unreadable and users must re-enter them. Never use a `VITE_*` variable for a secret.
+
+3. Deploy. Startup migration 4 creates integration settings, drafts and the durable Telegram queue with forced RLS. The maintenance principal dispatches Telegram identities and jobs; per-user settings and financial operations use the restricted runtime role.
+4. In a trusted local terminal, load the same bot token, webhook secret and public `APP_ORIGIN` into environment variables (or an ignored `backend/.env`). Then run `npm.cmd run telegram:webhook -w backend`. This deliberately registers an external webhook at `/api/integrations/telegram/webhook`; it is not run automatically during build/start. The script uses two webhook connections, accepts only messages/callbacks, preserves pending Telegram updates and never logs token values. Register only one deployment for a given bot. Do not run this against your production bot from a test deployment.
+
+The webhook validates Telegram's secret header, persists each update before acknowledging receipt, and uses a database-backed worker. Sleeping Render instances may take a minute or longer to respond. Duplicate update deliveries and repeated confirmation clicks cannot create duplicate financial records. Replies may occasionally be delivered twice if the process stops after Telegram accepts a reply but before local acknowledgement; financial writes remain transactional. Jobs are leased and retried up to six times. Retries continue when the service is awake/restarted; this is not an always-on delivery SLA and failed deliveries are not automatically reprocessed forever.
+
+### User setup
+
+1. Open **Settings → Integrations**. Choose DeepSeek or OpenRouter, enter a model identifier from that provider's current dashboard and your API key, and review the data-sharing consent. The selected model must support JSON-object output; unsupported models fail explicitly rather than silently changing providers/models. Save, then optionally test the saved configuration (this may consume credits).
+2. Generate a Telegram connection link, open it and tap **Start** in the bot. Return to the site, refresh the connection and confirm the displayed Telegram identity only if it is yours. Links expire after ten minutes, are single-use and do not by themselves authorize access. A Telegram ID can belong to only one account at a time. Disconnect first to change accounts.
+3. Send one complete expense in a private chat: item, BRL amount, payment account/card, and optionally category, date and reporting month. The AI suggests a category from existing categories; it never creates a card/account/category. Check the proposed amount, payment method, category, date and reporting month, then tap **Confirm**. To correct an entry, use **Cancel / correct** and resend a complete message. Each message is independent, not a conversational editing session. Returning to the visible application refreshes financial data so confirmed bot expenses appear without a full reload.
+
+Version one supports ordinary expense text only, not receipts, audio, transfers, income, installments, reports or autonomous agents. The date defaults to today in `America/Sao_Paulo`; the reporting month defaults to the purchase month, **not** an inferred credit-card statement month. Specify another reporting month explicitly and always check the preview. Bank/cash expenses are recorded as `paid`; card purchases as `posted`. Drafts expire in 24 hours. Financial records can be edited normally on the site afterwards. `/help` shows usage; `/disconnect` unlinks the Telegram account. Removing the AI key or disconnecting cancels pending drafts but does not delete financial records.
+
+### Privacy and operating limits
+
+- Keys are encrypted with AES-256-GCM, authenticated against their owning account and never returned by the API. The server can decrypt them to call the provider; this is **not end-to-end encryption** and does not prevent server administrators from accessing data/keys.
+- Only the expense text and the IDs/names of that account's existing accounts, cards and categories are sent for interpretation, not balances, passwords, other users' records or the full financial history. The catalog is limited to 300 reference records. Telegram sees bot messages; the AI provider sees the interpretation input. Users must opt in. Revocation cannot recall data already sent to an external provider.
+- OpenRouter requests disable provider fallbacks and request providers that disallow data collection. These routing preferences are not a blanket privacy guarantee; verify the chosen provider's retention and data policies.
+- Each account is limited to one AI call per ten seconds and 100 calls per database day, including tests and unsuccessful provider attempts. Output is capped at 800 tokens. These are request limits, not a guaranteed monetary cap; also configure spending limits with your provider. Unlinked users and group chats never invoke AI.
+- Successful queue payloads/replies are cleared; failed payloads are cleared after 24 hours by the active worker. Minimal update-ID tombstones remain for deduplication. Expired drafts are removed after a further 30 days. Cleanup requires the worker to run.
+- Full encrypted application backups deliberately **exclude** integration keys, Telegram links, drafts and the queue, just as they exclude sessions/reset tokens. After a database restore, reconnect integrations and re-enter AI keys. Financial records already confirmed through Telegram are ordinary records and remain included in backups/exports.
+
+Provider calls and Telegram delivery are covered by mocked automated tests. A real bot/provider end-to-end check is still required after configuring the deployment; no real customer keys are used in the test suite.
 
 ## Meal allowance balance
 

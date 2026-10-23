@@ -5,6 +5,7 @@ import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import { applyRowSecurity } from './security-migration';
+import { migrateIntegrations } from '../integrations/integration-migration';
 
 export interface QueryExecutor {
   query<T extends Record<string, unknown> = Record<string, unknown>>(
@@ -143,6 +144,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy, QueryExec
           "ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'pt-BR' CHECK (language IN ('pt-BR','en-US'))",
         );
         await database.query('INSERT INTO schema_migrations(version) VALUES(3)');
+      }
+      const integrations = await database.query(
+        'SELECT version FROM schema_migrations WHERE version=4',
+      );
+      if (integrations.length === 0) {
+        await migrateIntegrations(database);
+        await database.query('INSERT INTO schema_migrations(version) VALUES(4)');
       }
     });
   }

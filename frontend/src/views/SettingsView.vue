@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { t, language } from '../i18n';
+import IntegrationSettings from '../components/IntegrationSettings.vue';
 
 import { Tags, Users, History, Download, ShieldCheck, ChevronRight } from 'lucide-vue-next';
 import { useAuthStore } from '../stores/auth';
@@ -75,6 +76,7 @@ const settings = computed(() => [
     <p v-if="error" role="alert" class="notice error">{{ error }}</p>
     <p v-if="saved" role="status" class="notice success">{{ t('Idioma atualizado.') }}</p>
   </section>
+  <IntegrationSettings />
   <div class="settings-grid">
     <RouterLink v-for="item in settings" :key="item.to" :to="item.to" class="panel settings-link"
       ><span class="settings-icon"><component :is="item.icon" :size="23" /></span>

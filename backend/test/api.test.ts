@@ -5,7 +5,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:net';
-import { randomInt } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 
 test(
   'HTTP workflow enforces authentication, ownership, CSRF, optimistic locking and goal tracking without the retired importer',
@@ -35,6 +35,10 @@ test(
         APP_ORIGIN: origin,
         DATABASE_URL: '',
         NODE_ENV: 'test',
+        INTEGRATION_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
+        TELEGRAM_BOT_TOKEN: '',
+        TELEGRAM_BOT_USERNAME: '',
+        TELEGRAM_WEBHOOK_SECRET: '',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -79,6 +83,13 @@ test(
           body: data === undefined ? undefined : JSON.stringify(data),
         });
       assert.equal((await request('/finance/records')).status, 401);
+      assert.equal((await request('/integrations')).status, 401);
+      assert.equal((await request('/integrations/ai', 'PUT', {})).status, 401);
+      assert.equal((await request('/integrations/telegram/link', 'POST')).status, 401);
+      assert.equal(
+        (await request('/integrations/telegram/webhook', 'POST', { update_id: 1 })).status,
+        401,
+      );
       assert.equal((await request('/finance/export')).status, 401);
       assert.equal((await request('/finance/dashboard?month=2026-10')).status, 401);
       assert.equal(
@@ -113,6 +124,29 @@ test(
       });
       assert.equal(signup.status, 201);
       const cookie = signup.headers.get('set-cookie')!.split(';')[0];
+      const aiKey = randomBytes(24).toString('hex');
+      const aiConfig = { provider: 'deepseek', model: 'test-model', apiKey: aiKey, consent: true };
+      assert.equal(
+        (await request('/integrations/ai', 'PUT', aiConfig, cookie, 'https://evil.example.test'))
+          .status,
+        403,
+      );
+      assert.equal(
+        (await request('/integrations/ai', 'PUT', { ...aiConfig, consent: false }, cookie)).status,
+        400,
+      );
+      const integrationSaved = await request('/integrations/ai', 'PUT', aiConfig, cookie);
+      assert.equal(integrationSaved.status, 200);
+      const integrationStatus = await integrationSaved.json();
+      assert.equal(integrationStatus.hasKey, true);
+      assert.equal(integrationStatus.telegramAvailable, false);
+      assert.ok(!JSON.stringify(integrationStatus).includes(aiKey));
+      assert.equal((await request('/integrations/telegram/link', 'POST', {}, cookie)).status, 503);
+      assert.equal((await request('/integrations/ai', 'DELETE', undefined, cookie)).status, 200);
+      assert.equal(
+        (await (await request('/integrations', 'GET', undefined, cookie)).json()).hasKey,
+        false,
+      );
       assert.match(signup.headers.get('set-cookie')!, /HttpOnly/);
       assert.equal((await request('/auth/me', 'GET', undefined, cookie)).status, 200);
       const preference = await request('/auth/preferences', 'PATCH', { language: 'en-US' }, cookie);

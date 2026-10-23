@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t } from '../i18n';
 
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import {
   LayoutDashboard,
@@ -36,6 +36,26 @@ const route = useRoute();
 const router = useRouter();
 const mobileOpen = ref(false);
 const dark = ref(localStorage.getItem('finance-theme') !== 'light');
+let lastExternalRefresh = 0;
+function refreshAfterReturning() {
+  if (
+    document.visibilityState === 'visible' &&
+    auth.user &&
+    !finance.loading &&
+    Date.now() - lastExternalRefresh > 5000
+  ) {
+    lastExternalRefresh = Date.now();
+    void finance.refresh();
+  }
+}
+onMounted(() => {
+  document.addEventListener('visibilitychange', refreshAfterReturning);
+  window.addEventListener('focus', refreshAfterReturning);
+});
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', refreshAfterReturning);
+  window.removeEventListener('focus', refreshAfterReturning);
+});
 const links = computed(() => [
   { path: '/dashboard', label: t('Visão geral'), icon: LayoutDashboard },
   { path: '/month', label: t('Meu mês'), icon: CalendarDays },

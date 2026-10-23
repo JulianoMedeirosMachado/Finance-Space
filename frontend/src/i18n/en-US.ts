@@ -1,4 +1,48 @@
 export const english: Record<string, string> = {
+  Integrações: 'Integrations',
+  'Sua IA, sua conta. Use o bot central para preparar despesas e confirme antes de cadastrar.':
+    'Your AI, your account. Use the shared bot to prepare expenses and confirm before registering.',
+  'Carregando integrações...': 'Loading integrations...',
+  'Inteligência artificial': 'Artificial intelligence',
+  'O administrador precisa configurar a criptografia no servidor para habilitar a IA.':
+    'The administrator must configure server encryption to enable AI.',
+  Provedor: 'Provider',
+  'Identificador do modelo': 'Model identifier',
+  'Copie o identificador do painel do provedor': 'Copy the identifier from your provider dashboard',
+  'Chave de API': 'API key',
+  'Chave salva — deixe vazio para manter': 'Key saved — leave blank to keep it',
+  'Cole sua chave aqui': 'Paste your key here',
+  'A chave não é exibida novamente. Cada usuário paga o consumo no próprio provedor. Testar a conexão também pode consumir créditos.':
+    'The key is never displayed again. Each user pays their own provider usage. Testing the connection may also consume credits.',
+  'Autorizo enviar minhas mensagens e os nomes das minhas contas, cartões e categorias ao provedor de IA selecionado. As mensagens também passam pelo Telegram.':
+    'I authorize sending my messages and account, card and category names to the selected AI provider. Messages also pass through Telegram.',
+  'Salvar configuração da IA': 'Save AI settings',
+  'Testar configuração salva': 'Test saved settings',
+  'Remover chave': 'Remove key',
+  'Configuração da IA salva.': 'AI settings saved.',
+  'Conexão com a IA validada.': 'AI connection verified.',
+  'Chave removida. Os rascunhos pendentes foram cancelados.':
+    'Key removed. Pending drafts were cancelled.',
+  'Telegram conectado. Envie uma despesa para começar.':
+    'Telegram connected. Send an expense to get started.',
+  'Telegram desconectado.': 'Telegram disconnected.',
+  'O administrador precisa configurar o bot central no servidor.':
+    'The administrator must configure the shared bot on the server.',
+  'Conectado a': 'Connected to',
+  'Gere um link, abra o bot, toque em Iniciar e volte aqui para atualizar e confirmar sua identidade. O link expira em 10 minutos.':
+    'Generate a link, open the bot, tap Start and return here to refresh and confirm your identity. The link expires in 10 minutes.',
+  'Gerar link de conexão': 'Generate connection link',
+  'Abrir bot no Telegram': 'Open bot in Telegram',
+  'Atualizar vínculo': 'Refresh connection',
+  'Confirme somente se esta é sua conta do Telegram:':
+    'Confirm only if this is your Telegram account:',
+  'Confirmar minha conta do Telegram': 'Confirm my Telegram account',
+  'Desconectar Telegram': 'Disconnect Telegram',
+  'Cancelar vínculo pendente': 'Cancel pending connection',
+  'Somente despesas por texto em conversa privada. Para corrigir, cancele o rascunho e reenvie a mensagem completa. Sem áudios, fotos, parcelamentos ou transferências nesta versão.':
+    'Text expenses in private chats only. To correct a draft, cancel and resend the complete message. Voice messages, photos, installments and transfers are not supported in this version.',
+  'Confira data e competência antes de confirmar. Sem indicação, usamos hoje em São Paulo e a competência da compra, não o vencimento do cartão. O bot pode demorar enquanto o servidor acorda.':
+    'Check the date and reporting month before confirming. Unless specified, we use today in Sao Paulo and the purchase month, not the card due month. The bot may take longer while the server wakes up.',
   'Sem categoria': 'Uncategorized',
   Saídas: 'Outflows',
   'A parcela atual e o término aparecem na visão Meu mês. O valor cadastrado é o de cada parcela.':

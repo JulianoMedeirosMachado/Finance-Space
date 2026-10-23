@@ -65,7 +65,12 @@ test('legacy schema upgrades preserve data and goals and contributions survive s
   assert.equal(summary.goals[0].savedAmount, 10000);
   assert.equal(summary.goals[0].progress, 2);
   assert.equal(summary.benefits.balance, 67200);
-  assert.equal((await restarted.query('SELECT version FROM schema_migrations')).length, 3);
+  assert.deepEqual(
+    (await restarted.query('SELECT version FROM schema_migrations ORDER BY version')).map(
+      (row) => row.version,
+    ),
+    [1, 2, 3, 4],
+  );
   assert.equal((await new AuthService(restarted).findUser(session.token)).language, 'en-US');
   await restarted.onModuleDestroy();
   await rm(directory, { recursive: true });

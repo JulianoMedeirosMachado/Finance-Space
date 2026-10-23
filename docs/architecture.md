@@ -45,6 +45,16 @@ The original history is kept separately for audit and browsing. It contributes t
 
 Legacy import keys and audit rows preserve provenance and backup compatibility. Future imports should use independent format adapters and strict domain validation. User-level row locking serializes financial writes. Optimistic record versions prevent one open tab from silently overwriting another tab's changes. Referenced lookup records cannot be deleted.
 
+## Optional AI and Telegram integration
+
+The integrations module separates fixed-endpoint AI calls, authenticated Telegram transport, account configuration, expense drafts and a database-backed update worker. AES-256-GCM credentials are bound to their owner's UUID through additional authenticated data. The application never returns decrypted keys to clients. The encryption key belongs in the server secret environment, not the database or frontend.
+
+Telegram identities are resolved by the trusted maintenance connection after webhook-secret validation. A ten-minute hashed link token only nominates a candidate; the authenticated website owner must confirm the exact candidate ID. Unlinked users and group chats cannot invoke AI. Settings and drafts have forced owner-scoped RLS. The queue has maintenance-only RLS and contains durable update IDs, leases, retry state and a temporary reply outbox.
+
+AI produces an untrusted structured proposal, never SQL or an arbitrary tool execution. Prompts contain only the user's text and a bounded lookup catalog. Zod and finance ownership validation reject invalid/foreign references. Confirmation locks the settings, user and draft, revalidates links and atomically inserts a financial record and marks the draft confirmed. Replayed callbacks/updates cannot produce additional records. Reply delivery is at-least-once, not exactly-once. Transient failures are retried with bounded backoff; exhausted jobs require operator attention. Restarts reclaim expired leases.
+
+Integrations are deliberately excluded from portable finance exports and application backups. Restore ordinary financial records normally; reconnect bot identities and re-enter provider keys afterwards. See the README for deployment secrets, limits, supported expense types and consent requirements.
+
 ## Security and operations
 
 Password hashes use scrypt with independent random salts. Session tokens contain 256 bits of randomness; only their SHA-256 hashes are persisted. Cookies are HttpOnly, SameSite=Lax and Secure in production. Password-reset tokens are hashed, single-use and expiring; reset invalidates existing sessions. API reads and writes always scope to the authenticated owner. CSRF origin checks, rate limits, Helmet headers, body limits and strict input schemas are applied centrally.

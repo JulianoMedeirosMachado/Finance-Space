@@ -8,6 +8,23 @@ export function requestLanguage(request: Request): Language {
 }
 
 const english: Record<string, string> = {
+  'O modelo não retornou JSON válido. Escolha um modelo compatível.':
+    'The model did not return valid JSON. Choose a compatible model.',
+  'Integrações não configuradas no servidor.': 'Integrations are not configured on the server.',
+  'Informe a chave de API do provedor selecionado.': 'Enter the API key for the selected provider.',
+  'Configure sua IA no site antes de usar o bot.':
+    'Configure your AI on the website before using the bot.',
+  'Limite da IA atingido. Aguarde e tente novamente.':
+    'AI request limit reached. Wait and try again.',
+  'Desconecte o Telegram atual antes de vincular outro.':
+    'Disconnect the current Telegram account before connecting another one.',
+  'Vínculo inválido ou expirado. Gere um novo link.':
+    'Invalid or expired connection. Generate a new link.',
+  'Não foi possível consultar a IA. Confira a chave, o modelo e os créditos.':
+    'Unable to contact AI. Check your key, model and credits.',
+  'A IA não retornou uma despesa válida. Reenvie a mensagem completa.':
+    'AI did not return a valid expense. Resend the complete message.',
+  'Não foi possível responder no Telegram.': 'Unable to reply on Telegram.',
   'Não foi possível concluir a operação.': 'Unable to complete the operation.',
   'E-mail ou senha inválidos.': 'Invalid email or password.',
   'Entre na sua conta para continuar.': 'Sign in to continue.',

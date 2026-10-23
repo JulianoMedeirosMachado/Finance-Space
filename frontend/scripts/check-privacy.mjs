@@ -5,6 +5,7 @@ import { createPinia } from 'pinia';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import { renderToString } from '@vue/server-renderer';
 import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 
 const server = await createServer({
   root: fileURLToPath(new URL('..', import.meta.url)),
@@ -157,8 +158,18 @@ try {
   const { default: Month } = await server.ssrLoadModule('/src/views/MonthView.vue');
   const { default: Reports } = await server.ssrLoadModule('/src/views/ReportsView.vue');
   const { default: RecordForm } = await server.ssrLoadModule('/src/components/RecordForm.vue');
+  const { default: IntegrationSettings } = await server.ssrLoadModule(
+    '/src/components/IntegrationSettings.vue',
+  );
   assert.equal(resources.value.accounts.title, 'Contas bancárias');
   setLanguage('en-US');
+  const integrationSource = await readFile(
+    new URL('../src/components/IntegrationSettings.vue', import.meta.url),
+    'utf8',
+  );
+  for (const match of integrationSource.matchAll(/\bt\(\s*'([^']+)'/g)) {
+    assert.doesNotMatch(t(match[1]), /[çãõáéíóúêô]/i, `Untranslated integration text: ${match[1]}`);
+  }
   assert.equal(resources.value.accounts.title, 'Bank accounts');
   assert.equal(
     resources.value.transactions.fields.find((field) => field.key === 'nature').options[0].label,
@@ -172,7 +183,7 @@ try {
   assert.equal(t('Editar meta {name}', { name: '<img>' }), 'Edit goal <img>');
   assert.equal(t('{count} aporte registrado', { count: 1 }), '1 contribution recorded');
   assert.equal(t('{count} aportes registrados', { count: 2 }), '2 contributions recorded');
-  for (const component of [Overview, Goals, Settings, Auth, Month, Reports]) {
+  for (const component of [Overview, Goals, Settings, Auth, Month, Reports, IntegrationSettings]) {
     const translated = (await render(component)).replaceAll('Português (Brasil)', '');
     assert.doesNotMatch(
       translated,

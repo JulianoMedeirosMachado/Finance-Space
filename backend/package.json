@@ -1,6 +1,6 @@
 {
   "name": "finance-space-api", "version": "1.0.0", "private": true,
-  "scripts": { "dev": "tsx watch src/main.ts", "build": "tsc -p tsconfig.json", "start": "node dist/main.js", "test": "npm run build && tsx --test test/*.test.ts", "backup": "tsx src/backup.ts" },
+  "scripts": { "dev": "tsx watch src/main.ts", "build": "tsc -p tsconfig.json", "start": "node dist/main.js", "test": "npm run build && tsx --test test/*.test.ts", "backup": "tsx src/backup.ts", "telegram:webhook": "tsx src/integrations/setup-webhook.ts" },
   "dependencies": {
     "@nestjs/common": "^11.1.0", "@nestjs/core": "^11.1.0", "@nestjs/platform-express": "^11.1.0",
     "@electric-sql/pglite": "^0.3.14", "pg": "^8.16.0", "reflect-metadata": "^0.2.2", "rxjs": "^7.8.2",

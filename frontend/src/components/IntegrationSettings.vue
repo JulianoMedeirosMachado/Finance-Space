@@ -1,0 +1,272 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import { Bot, KeyRound } from 'lucide-vue-next';
+import { api } from '../services/api';
+import { t } from '../i18n';
+
+interface IntegrationStatus {
+  aiAvailable: boolean;
+  telegramAvailable: boolean;
+  provider: 'deepseek' | 'openrouter';
+  model: string;
+  hasKey: boolean;
+  telegram: { id: string; name: string } | null;
+  candidate: { id: string; name: string } | null;
+}
+const status = ref<IntegrationStatus | null>(null);
+const provider = ref<'deepseek' | 'openrouter'>('deepseek');
+const model = ref('');
+const apiKey = ref('');
+const consent = ref(false);
+const busy = ref(false);
+const error = ref('');
+const notice = ref('');
+const link = ref('');
+
+async function run(operation: () => Promise<void>) {
+  busy.value = true;
+  error.value = '';
+  notice.value = '';
+  try {
+    await operation();
+  } catch (failure) {
+    error.value =
+      failure instanceof Error ? failure.message : t('Não foi possível concluir a operação.');
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function refresh() {
+  status.value = await api<IntegrationStatus>('/integrations');
+}
+
+onMounted(() =>
+  run(async () => {
+    await refresh();
+    provider.value = status.value!.provider;
+    model.value = status.value!.model;
+  }),
+);
+
+async function saveAi() {
+  await run(async () => {
+    status.value = await api<IntegrationStatus>('/integrations/ai', {
+      method: 'PUT',
+      body: JSON.stringify({
+        provider: provider.value,
+        model: model.value,
+        consent: consent.value,
+        ...(apiKey.value ? { apiKey: apiKey.value } : {}),
+      }),
+    });
+    apiKey.value = '';
+    notice.value = t('Configuração da IA salva.');
+  });
+}
+
+async function testAi() {
+  await run(async () => {
+    await api('/integrations/ai/test', { method: 'POST' });
+    notice.value = t('Conexão com a IA validada.');
+  });
+}
+
+async function removeAi() {
+  await run(async () => {
+    status.value = await api<IntegrationStatus>('/integrations/ai', { method: 'DELETE' });
+    apiKey.value = '';
+    model.value = '';
+    consent.value = false;
+    notice.value = t('Chave removida. Os rascunhos pendentes foram cancelados.');
+  });
+}
+
+async function connectTelegram() {
+  await run(async () => {
+    const result = await api<{ url: string }>('/integrations/telegram/link', { method: 'POST' });
+    link.value = result.url;
+    await refresh();
+  });
+}
+
+async function confirmTelegram() {
+  await run(async () => {
+    status.value = await api<IntegrationStatus>('/integrations/telegram/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ candidateId: status.value?.candidate?.id }),
+    });
+    link.value = '';
+    notice.value = t('Telegram conectado. Envie uma despesa para começar.');
+  });
+}
+
+async function disconnectTelegram() {
+  await run(async () => {
+    status.value = await api<IntegrationStatus>('/integrations/telegram', { method: 'DELETE' });
+    link.value = '';
+    notice.value = t('Telegram desconectado.');
+  });
+}
+</script>
+
+<template>
+  <section class="panel integration-panel" :aria-label="t('Integrações')" :aria-busy="busy">
+    <h2><Bot :size="22" /> {{ t('Integrações') }}</h2>
+    <p>
+      {{
+        t(
+          'Sua IA, sua conta. Use o bot central para preparar despesas e confirme antes de cadastrar.',
+        )
+      }}
+    </p>
+    <p v-if="error" class="notice error" role="alert">{{ error }}</p>
+    <p v-if="notice" class="notice success" role="status">{{ notice }}</p>
+    <p v-if="!status">{{ t('Carregando integrações...') }}</p>
+    <template v-else>
+      <form class="integration-form" @submit.prevent="saveAi">
+        <h3><KeyRound :size="18" /> {{ t('Inteligência artificial') }}</h3>
+        <p v-if="!status.aiAvailable" class="notice">
+          {{
+            t('O administrador precisa configurar a criptografia no servidor para habilitar a IA.')
+          }}
+        </p>
+        <fieldset :disabled="busy">
+          <div class="form-grid">
+            <label
+              >{{ t('Provedor') }}
+              <select v-model="provider" @change="apiKey = ''">
+                <option value="deepseek">DeepSeek</option>
+                <option value="openrouter">OpenRouter</option>
+              </select>
+            </label>
+            <label
+              >{{ t('Identificador do modelo')
+              }}<input
+                v-model="model"
+                required
+                maxlength="150"
+                autocomplete="off"
+                :placeholder="t('Copie o identificador do painel do provedor')"
+            /></label>
+            <label class="full-width"
+              >{{ t('Chave de API') }}
+              <input
+                v-model="apiKey"
+                name="ai-api-key"
+                type="password"
+                autocomplete="new-password"
+                :spellcheck="false"
+                maxlength="512"
+                :required="!status.hasKey || status.provider !== provider"
+                :placeholder="
+                  status.hasKey && status.provider === provider
+                    ? t('Chave salva — deixe vazio para manter')
+                    : t('Cole sua chave aqui')
+                "
+              />
+            </label>
+          </div>
+          <p class="field-hint">
+            {{
+              t(
+                'A chave não é exibida novamente. Cada usuário paga o consumo no próprio provedor. Testar a conexão também pode consumir créditos.',
+              )
+            }}
+          </p>
+          <label class="integration-consent"
+            ><input v-model="consent" type="checkbox" required />{{
+              t(
+                'Autorizo enviar minhas mensagens e os nomes das minhas contas, cartões e categorias ao provedor de IA selecionado. As mensagens também passam pelo Telegram.',
+              )
+            }}</label
+          >
+          <div class="integration-actions">
+            <button class="button primary" type="submit" :disabled="!status.aiAvailable">
+              {{ t('Salvar configuração da IA') }}
+            </button>
+            <button
+              class="button secondary"
+              type="button"
+              :disabled="!status.hasKey || !status.aiAvailable"
+              @click="testAi"
+            >
+              {{ t('Testar configuração salva') }}
+            </button>
+            <button
+              class="button secondary"
+              type="button"
+              :disabled="!status.hasKey"
+              @click="removeAi"
+            >
+              {{ t('Remover chave') }}
+            </button>
+          </div>
+        </fieldset>
+      </form>
+      <div class="integration-telegram">
+        <h3>Telegram</h3>
+        <p v-if="!status.telegramAvailable" class="notice">
+          {{ t('O administrador precisa configurar o bot central no servidor.') }}
+        </p>
+        <template v-else>
+          <p v-if="status.telegram">
+            {{ t('Conectado a') }}: {{ status.telegram.name }} ({{ status.telegram.id }})
+          </p>
+          <div v-else>
+            <p>
+              {{
+                t(
+                  'Gere um link, abra o bot, toque em Iniciar e volte aqui para atualizar e confirmar sua identidade. O link expira em 10 minutos.',
+                )
+              }}
+            </p>
+            <div class="integration-actions">
+              <button class="button secondary" :disabled="busy" @click="connectTelegram">
+                {{ t('Gerar link de conexão') }}
+              </button>
+              <a
+                v-if="link"
+                class="button primary"
+                :href="link"
+                target="_blank"
+                rel="noopener noreferrer"
+                referrerpolicy="no-referrer"
+                >{{ t('Abrir bot no Telegram') }}</a
+              >
+              <button class="button secondary" :disabled="busy" @click="run(refresh)">
+                {{ t('Atualizar vínculo') }}
+              </button>
+            </div>
+            <div v-if="status.candidate" class="notice">
+              <p>
+                {{ t('Confirme somente se esta é sua conta do Telegram:') }}
+                {{ status.candidate.name }} ({{ status.candidate.id }})
+              </p>
+              <button class="button primary" :disabled="busy" @click="confirmTelegram">
+                {{ t('Confirmar minha conta do Telegram') }}
+              </button>
+            </div>
+          </div>
+          <button class="button secondary" :disabled="busy" @click="disconnectTelegram">
+            {{ status.telegram ? t('Desconectar Telegram') : t('Cancelar vínculo pendente') }}
+          </button>
+          <p class="field-hint">
+            {{
+              t(
+                'Somente despesas por texto em conversa privada. Para corrigir, cancele o rascunho e reenvie a mensagem completa. Sem áudios, fotos, parcelamentos ou transferências nesta versão.',
+              )
+            }}
+          </p>
+          <p class="field-hint">
+            {{
+              t(
+                'Confira data e competência antes de confirmar. Sem indicação, usamos hoje em São Paulo e a competência da compra, não o vencimento do cartão. O bot pode demorar enquanto o servidor acorda.',
+              )
+            }}
+          </p>
+        </template>
+      </div>
+    </template>
+  </section>
+</template>
