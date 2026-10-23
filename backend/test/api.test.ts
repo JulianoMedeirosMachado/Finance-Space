@@ -173,6 +173,10 @@ test(
       );
       assert.equal((await request('/insights/invalid', 'POST', {}, cookie)).status, 400);
       assert.equal(
+        (await request('/insights/weekly', 'POST', { retry: 'true' }, cookie)).status,
+        400,
+      );
+      assert.equal(
         (await request('/integrations/insights', 'PATCH', { enabled: false }, cookie)).status,
         200,
       );

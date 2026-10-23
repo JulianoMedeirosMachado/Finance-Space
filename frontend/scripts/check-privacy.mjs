@@ -220,6 +220,19 @@ try {
   assert.doesNotMatch(renderedInsight, /<img src=x|<script>alert/);
   assert.match(renderedInsight, /Analysis history/);
   assert.doesNotMatch(renderedInsight, /[çãõáéíóúêô]/i);
+  const failedInsights = await render(InsightsPanel, {
+    overview: {
+      ...insightsOverview,
+      enabled: true,
+      ready: true,
+      reports: [{ ...insightReport, state: 'failed', report: null }],
+    },
+    kind: 'weekly',
+  });
+  assert.match(failedInsights, /I understand that retrying makes a new AI request/);
+  assert.match(failedInsights, /type="checkbox"/);
+  assert.match(failedInsights, /<button[^>]*disabled[^>]*>[\s\S]*?Try again/);
+  assert.doesNotMatch(failedInsights, /[çãõáéíóúêô]/i);
   assert.equal(resources.value.accounts.title, 'Bank accounts');
   assert.equal(
     resources.value.transactions.fields.find((field) => field.key === 'nature').options[0].label,

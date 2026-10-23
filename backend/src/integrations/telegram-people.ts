@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import type { FinanceRecord } from '../finance/finance.schema';
-import type { ExpenseProposal } from './integration.schema';
+import type { EntryProposal } from './integration.schema';
 
 function normalizedWords(value: string): string[] {
   return (
@@ -39,7 +39,7 @@ export function mentionedPeople(references: FinanceRecord[], text: string) {
 }
 
 export function responsiblePersonId(
-  proposal: ExpenseProposal,
+  proposal: EntryProposal,
   references: FinanceRecord[],
   text: string,
 ) {

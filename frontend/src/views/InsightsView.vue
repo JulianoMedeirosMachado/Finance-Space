@@ -33,14 +33,15 @@ async function refresh() {
   }
 }
 
-async function generate() {
+async function generate(retry = false) {
   if (
     active &&
     overview.value?.enabled &&
     overview.value.ready &&
     !busy.value &&
     !selectedId.value &&
-    current.value?.state !== 'ready'
+    current.value?.state !== 'ready' &&
+    (!current.value || retry)
   ) {
     const requestedKind = kind.value;
     attempted.add(`${requestedKind}:${overview.value.periods[requestedKind].start}`);
@@ -49,7 +50,7 @@ async function generate() {
     error.value = '';
     lastRequest = Date.now();
     try {
-      await api(`/insights/${requestedKind}`, { method: 'POST' });
+      await api(`/insights/${requestedKind}`, { method: 'POST', body: JSON.stringify({ retry }) });
     } catch (failure) {
       error.value =
         failure instanceof Error ? failure.message : t('Não foi possível concluir a operação.');

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { FinanceRecord } from '../src/finance/finance.schema';
 import { summarize } from '../src/finance/calculations';
-import { expenseProposalSchema } from '../src/integrations/integration.schema';
-import { buildTelegramExpense } from '../src/integrations/telegram-expense';
+import { entryProposalSchema } from '../src/integrations/integration.schema';
+import { buildTelegramEntry } from '../src/integrations/telegram-entry';
 import { mentionedPeople, responsiblePersonId } from '../src/integrations/telegram-people';
 
 function person(name: string, isSelf = false): FinanceRecord {
@@ -12,7 +12,7 @@ function person(name: string, isSelf = false): FinanceRecord {
 }
 
 function proposal(personId: string | null = null, personMentioned = false) {
-  return expenseProposalSchema.parse({
+  return entryProposalSchema.parse({
     description: 'Shoes',
     amount: 30000,
     date: '2026-10-23',
@@ -49,8 +49,8 @@ test('responsible-person matching shares only mentioned references and rejects a
 test('third-party expenses and installments accrue monthly charges without recording reimbursement', () => {
   const firstParticipant = person('ParticipantA');
   const input = proposal(firstParticipant.id, true);
-  const ordinary = buildTelegramExpense(input, [firstParticipant], 'ParticipantA shoes');
-  const installment = buildTelegramExpense(
+  const ordinary = buildTelegramEntry(input, [firstParticipant], 'ParticipantA shoes');
+  const installment = buildTelegramEntry(
     { ...input, installments: 3 },
     [firstParticipant],
     'ParticipantA shoes in 3 installments',

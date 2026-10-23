@@ -17,7 +17,7 @@ import { TelegramWorker } from '../src/integrations/telegram.worker';
 import {
   aiSettingsSchema,
   BotReply,
-  ExpenseProposal,
+  EntryProposal,
   TelegramUpdate,
 } from '../src/integrations/integration.schema';
 
@@ -112,6 +112,9 @@ test('AI adapter uses fixed HTTPS endpoints, minimal catalogs, JSON validation a
     assert.match(instructions, /Distinguish merchants from payment instruments/);
     assert.match(instructions, /Only use exact IDs from the catalog/);
     assert.match(instructions, /amountBasis="per_installment"/);
+    assert.match(instructions, /nature="income"/);
+    assert.match(instructions, /recurrence="monthly"/);
+    assert.match(instructions, /Other frequencies \(weekly, yearly, etc.\) are unsupported/);
     const personId = randomUUID();
     output = JSON.stringify({ ...JSON.parse(output), personId, personMentioned: true });
     const assigned = await ai.interpret(
@@ -143,6 +146,27 @@ test('AI adapter uses fixed HTTPS endpoints, minimal catalogs, JSON validation a
     assert.equal(assigned.personMentioned, true);
     assert.ok(JSON.stringify(request.messages).includes(personId));
     assert.ok(!JSON.stringify(request.messages).includes('PRIVATE_'));
+    output = JSON.stringify({
+      ...JSON.parse(output),
+      nature: 'income',
+      recurrence: 'monthly',
+      day: 5,
+      endMonth: null,
+      accountId: randomUUID(),
+      cardId: null,
+      personId: null,
+      personMentioned: false,
+    });
+    const monthlyIncome = await ai.interpret(
+      credential,
+      'Salary monthly into Checking',
+      [],
+      'English',
+    );
+    assert.equal(monthlyIncome.nature, 'income');
+    assert.equal(monthlyIncome.recurrence, 'monthly');
+    assert.equal(monthlyIncome.day, 5);
+    assert.equal(request.max_tokens, 800);
     output = JSON.stringify({
       title: 'Summary',
       summary: 'Only aggregate data is used.',
@@ -176,7 +200,7 @@ test('AI adapter uses fixed HTTPS endpoints, minimal catalogs, JSON validation a
 
 class FakeAi extends AiService {
   calls: AiCredential[] = [];
-  proposal!: ExpenseProposal;
+  proposal!: EntryProposal;
   async interpret(credential: AiCredential) {
     this.calls.push(credential);
     return this.proposal;
@@ -337,6 +361,10 @@ test(
         clarification: null,
         installments: 1,
         amountBasis: 'total',
+        nature: 'expense',
+        recurrence: 'none',
+        day: null,
+        endMonth: null,
         personId: null,
         personMentioned: false,
       };
@@ -604,6 +632,106 @@ test(
         ),
         false,
       );
+      const aliceAccount = await restartedFinance.save(alice.id, 'accounts', {
+        name: 'Checking',
+        openingMonth: '2026-10',
+      });
+      const entryCases = [
+        {
+          description: 'Streaming subscription',
+          nature: 'expense' as const,
+          recurrence: 'monthly' as const,
+          day: 10,
+          endMonth: '2026-12',
+          accountId: null,
+          cardId: String(card.id),
+          expectedKind: 'recurring',
+          preview: /Subscription \/ recurring expense/,
+          confirmation: /Monthly schedule registered/,
+        },
+        {
+          description: 'Sale received',
+          nature: 'income' as const,
+          recurrence: 'none' as const,
+          day: null,
+          endMonth: null,
+          accountId: String(aliceAccount.id),
+          cardId: null,
+          expectedKind: 'transactions',
+          preview: /Income received/,
+          confirmation: /Income registered/,
+        },
+        {
+          description: 'Monthly salary',
+          nature: 'income' as const,
+          recurrence: 'monthly' as const,
+          day: 5,
+          endMonth: null,
+          accountId: String(aliceAccount.id),
+          cardId: null,
+          expectedKind: 'income',
+          preview: /Recurring income \(planned\)/,
+          confirmation: /Monthly schedule registered/,
+        },
+      ];
+      for (const [index, entry] of entryCases.entries()) {
+        await database.query(
+          'UPDATE integration_settings SET ai_last_at=NULL,ai_count=0 WHERE user_id=$1',
+          [alice.id],
+        );
+        ai.proposal = {
+          ...ai.proposal,
+          description: entry.description,
+          nature: entry.nature,
+          recurrence: entry.recurrence,
+          day: entry.day,
+          endMonth: entry.endMonth,
+          accountId: entry.accountId,
+          cardId: entry.cardId,
+          personId: null,
+          personMentioned: false,
+          installments: 1,
+          amount: 2000,
+        };
+        const preview = await service().handle(
+          message(300 + index, 101, 'Complete financial entry'),
+        );
+        assert.match(preview!.text, entry.preview);
+        if (entry.recurrence === 'monthly') {
+          assert.match(preview!.text, /Planned monthly schedule only/);
+          assert.match(preview!.text, /First reporting month: 2026-10/);
+          assert.match(preview!.text, new RegExp(`Day: ${entry.day}`));
+        }
+        assert.equal(
+          (await restartedFinance.list(alice.id)).filter(
+            (record) => record.data.description === entry.description,
+          ).length,
+          0,
+        );
+        const confirm = preview!.buttons![0][0].callback_data;
+        await service().handle(callback(310 + index, 202, confirm));
+        assert.equal(
+          (await restartedFinance.list(bob.id)).filter(
+            (record) => record.data.description === entry.description,
+          ).length,
+          0,
+        );
+        const confirmed = await service().handle(callback(320 + index, 101, confirm));
+        assert.match(confirmed!.text, entry.confirmation);
+        await service().handle(callback(330 + index, 101, confirm));
+        const saved = (await restartedFinance.list(alice.id)).filter(
+          (record) => record.data.description === entry.description,
+        );
+        assert.equal(saved.length, 1);
+        assert.equal(saved[0].kind, entry.expectedKind);
+        assert.equal(saved[0].data.nature, entry.nature);
+        assert.equal(saved[0].data.status, entry.recurrence === 'monthly' ? 'planned' : 'paid');
+        if (entry.recurrence === 'monthly') {
+          await restartedFinance.realize(alice.id, '2026-11', saved[0].id);
+          const monthly = await restartedFinance.dashboard(alice.id, '2026-11');
+          assert.equal(monthly.entries.filter((value) => value.sourceId === saved[0].id).length, 1);
+        }
+      }
       worker.onModuleDestroy();
     } finally {
       await database.onModuleDestroy();
