@@ -8,6 +8,7 @@ import { IntegrationRepository } from './integration.repository';
 import { AiService } from './ai.service';
 import { TelegramClient } from './telegram.client';
 import { TelegramWorker } from './telegram.worker';
+import { TelegramQueueRepository } from './telegram-queue.repository';
 import { InsightsController } from './insights.controller';
 import { InsightsService } from './insights.service';
 
@@ -20,6 +21,7 @@ import { InsightsService } from './insights.service';
     AiService,
     TelegramClient,
     TelegramWorker,
+    TelegramQueueRepository,
     InsightsService,
   ],
 })

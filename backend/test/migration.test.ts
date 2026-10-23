@@ -41,10 +41,25 @@ test('legacy schema upgrades preserve data and goals and contributions survive s
     "ALTER TABLE telegram_drafts DROP CONSTRAINT telegram_drafts_kind_check, ADD CONSTRAINT telegram_drafts_kind_check CHECK(kind IN ('transactions','installments'))",
   );
   await original.query('DELETE FROM schema_migrations WHERE version=6');
+  await original.query(
+    'ALTER TABLE telegram_updates DROP COLUMN actor_id,DROP COLUMN owner_id,DROP COLUMN binding_version,DROP COLUMN link_hash,DROP COLUMN lease_token',
+  );
+  await original.query('DROP TABLE telegram_actors');
+  await original.query('ALTER TABLE integration_settings DROP COLUMN telegram_link_version');
+  await original.query('DELETE FROM schema_migrations WHERE version=7');
+  await original.query('INSERT INTO telegram_updates(update_id,payload) VALUES(2,$1)', [
+    JSON.stringify({ message: { text: 'Synthetic unbound legacy message' } }),
+  ]);
   await original.onModuleDestroy();
   const upgraded = new DatabaseService();
   await upgraded.onModuleInit();
   const upgradedFinance = new FinanceService(upgraded);
+  const discarded = (
+    await upgraded.query('SELECT state,payload,reply FROM telegram_updates WHERE update_id=2')
+  )[0];
+  assert.equal(discarded.state, 'done');
+  assert.deepEqual(discarded.payload, {});
+  assert.equal(discarded.reply, null);
   assert.equal(
     (await upgraded.query('SELECT kind FROM telegram_drafts WHERE id=$1', [legacyDraftId]))[0].kind,
     'transactions',
@@ -90,7 +105,7 @@ test('legacy schema upgrades preserve data and goals and contributions survive s
     (await restarted.query('SELECT version FROM schema_migrations ORDER BY version')).map(
       (row) => row.version,
     ),
-    [1, 2, 3, 4, 5, 6],
+    [1, 2, 3, 4, 5, 6, 7],
   );
   assert.equal((await new AuthService(restarted).findUser(session.token)).language, 'en-US');
   await restarted.onModuleDestroy();

@@ -51,6 +51,7 @@ export type TelegramUpdate = z.infer<typeof telegramUpdateSchema>;
 export interface BotReply {
   chatId: string;
   ownerId?: string;
+  bindingVersion?: number;
   text: string;
   buttons?: { text: string; callback_data: string }[][];
 }
