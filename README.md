@@ -69,11 +69,26 @@ This integration is optional. The application remains usable without any AI/bot 
 3. Deploy. Startup migration 4 creates integration settings, drafts and the durable Telegram queue with forced RLS. The maintenance principal dispatches Telegram identities and jobs; per-user settings and financial operations use the restricted runtime role.
 4. In a trusted local terminal, load the same bot token, webhook secret and public `APP_ORIGIN` into environment variables (or an ignored `backend/.env`). Then run `npm.cmd run telegram:webhook -w backend`. This deliberately registers an external webhook at `/api/integrations/telegram/webhook`; it is not run automatically during build/start. The script uses two webhook connections, accepts only messages/callbacks, preserves pending Telegram updates and never logs token values. Register only one deployment for a given bot. Do not run this against your production bot from a test deployment.
 
+   Run these complete commands one at a time in PowerShell at the repository root. Replace the example origin with your Render URL. At each hidden prompt, paste the matching secret and press Enter; do not replace the prompt text with the secret. The encryption key is not needed on the local machine just to register the webhook.
+
+   ```powershell
+   $env:APP_ORIGIN = 'https://YOUR-SERVICE.onrender.com'
+   $telegramBotToken = Read-Host 'Paste the BotFather token' -AsSecureString
+   $env:TELEGRAM_BOT_TOKEN = [System.Net.NetworkCredential]::new('', $telegramBotToken).Password
+   $telegramWebhookSecret = Read-Host 'Paste the same webhook secret saved on Render' -AsSecureString
+   $env:TELEGRAM_WEBHOOK_SECRET = [System.Net.NetworkCredential]::new('', $telegramWebhookSecret).Password
+   npm.cmd run telegram:webhook -w backend
+   Remove-Item Env:TELEGRAM_BOT_TOKEN, Env:TELEGRAM_WEBHOOK_SECRET
+   Remove-Variable telegramBotToken, telegramWebhookSecret
+   ```
+
+   Successful registration prints `Telegram webhook registered. Pending updates were preserved.` This only confirms registration, not a live AI expense test. Deploy the configured server before connecting accounts.
+
 The webhook validates Telegram's secret header, persists each update before acknowledging receipt, and uses a database-backed worker. Sleeping Render instances may take a minute or longer to respond. Duplicate update deliveries and repeated confirmation clicks cannot create duplicate financial records. Replies may occasionally be delivered twice if the process stops after Telegram accepts a reply but before local acknowledgement; financial writes remain transactional. Jobs are leased and retried up to six times. Retries continue when the service is awake/restarted; this is not an always-on delivery SLA and failed deliveries are not automatically reprocessed forever.
 
 ### User setup
 
-1. Open **Settings → Integrations**. Choose DeepSeek or OpenRouter, enter a model identifier from that provider's current dashboard and your API key, and review the data-sharing consent. The selected model must support JSON-object output; unsupported models fail explicitly rather than silently changing providers/models. Save, then optionally test the saved configuration (this may consume credits).
+1. Open **Settings → AI integration** (**Configurações → Integração IA**). This card opens the dedicated authenticated `/integrations` page; provider keys and Telegram configuration are not displayed on the account settings overview. Choose DeepSeek or OpenRouter, enter a model identifier from that provider's current dashboard and your API key, and review the data-sharing consent. The selected model must support JSON-object output; unsupported models fail explicitly rather than silently changing providers/models. Save, then optionally test the saved configuration (this may consume credits).
 2. Generate a Telegram connection link, open it and tap **Start** in the bot. Return to the site, refresh the connection and confirm the displayed Telegram identity only if it is yours. Links expire after ten minutes, are single-use and do not by themselves authorize access. A Telegram ID can belong to only one account at a time. Disconnect first to change accounts.
 3. Send one complete expense in a private chat: item, BRL amount, payment account/card, and optionally category, date and reporting month. The AI suggests a category from existing categories; it never creates a card/account/category. Check the proposed amount, payment method, category, date and reporting month, then tap **Confirm**. To correct an entry, use **Cancel / correct** and resend a complete message. Each message is independent, not a conversational editing session. Returning to the visible application refreshes financial data so confirmed bot expenses appear without a full reload.
 

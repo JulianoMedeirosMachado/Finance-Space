@@ -154,6 +154,7 @@ try {
   const { resources } = await server.ssrLoadModule('/src/config/resources.ts');
   const { money, dateLabel, monthLabel } = await server.ssrLoadModule('/src/utils/format.ts');
   const { default: Settings } = await server.ssrLoadModule('/src/views/SettingsView.vue');
+  const { default: Integrations } = await server.ssrLoadModule('/src/views/IntegrationsView.vue');
   const { default: Auth } = await server.ssrLoadModule('/src/views/AuthView.vue');
   const { default: Month } = await server.ssrLoadModule('/src/views/MonthView.vue');
   const { default: Reports } = await server.ssrLoadModule('/src/views/ReportsView.vue');
@@ -183,7 +184,16 @@ try {
   assert.equal(t('Editar meta {name}', { name: '<img>' }), 'Edit goal <img>');
   assert.equal(t('{count} aporte registrado', { count: 1 }), '1 contribution recorded');
   assert.equal(t('{count} aportes registrados', { count: 2 }), '2 contributions recorded');
-  for (const component of [Overview, Goals, Settings, Auth, Month, Reports, IntegrationSettings]) {
+  for (const component of [
+    Overview,
+    Goals,
+    Settings,
+    Auth,
+    Month,
+    Reports,
+    IntegrationSettings,
+    Integrations,
+  ]) {
     const translated = (await render(component)).replaceAll('Português (Brasil)', '');
     assert.doesNotMatch(
       translated,
@@ -204,6 +214,14 @@ try {
   assert.equal(resources.value.accounts.title, 'Contas bancárias');
   assert.equal(dateLabel('2026-10-22'), '22/10/2026');
   assert.match(await render(Settings), /Idioma da conta/);
+  const settingsPage = await render(Settings);
+  assert.match(settingsPage, /href="\/integrations"/);
+  assert.match(settingsPage, /Integração IA/);
+  assert.doesNotMatch(settingsPage, /Carregando integrações|ai-api-key|integration-panel/);
+  const integrationsPage = await render(Integrations);
+  assert.match(integrationsPage, /<h1>Integração IA<\/h1>/);
+  assert.match(integrationsPage, /href="\/settings"/);
+  assert.match(integrationsPage, /integration-panel/);
   console.log(
     'Component checks passed: privacy, goals, allowance reconciliation, escaped XSS payloads, CSV protection and Portuguese/English pages and forms.',
   );

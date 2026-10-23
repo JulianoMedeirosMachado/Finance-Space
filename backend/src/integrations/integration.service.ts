@@ -212,7 +212,7 @@ export class IntegrationService {
         } else {
           reply = {
             chatId,
-            text: 'Conecte sua conta em Configurações → Integrações no Finance Space. / Connect your account in Settings → Integrations in Finance Space.',
+            text: 'Conecte sua conta em Configurações → Integração IA no Finance Space. / Connect your account in Settings → AI integration in Finance Space.',
           };
         }
       }

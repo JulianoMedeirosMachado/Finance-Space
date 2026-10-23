@@ -382,6 +382,7 @@ test(
         '/transactions',
         '/goals',
         '/settings',
+        '/integrations',
       ]) {
         assert.ok(new URL(path, origin).pathname.startsWith(manifest.scope));
         const page = await fetch(origin + path);

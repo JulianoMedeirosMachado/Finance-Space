@@ -1,4 +1,8 @@
 export const english: Record<string, string> = {
+  'Integração IA': 'AI integration',
+  'Configure sua inteligência artificial e conecte o Telegram.':
+    'Configure your AI and connect Telegram.',
+  'Voltar às configurações': 'Back to settings',
   Integrações: 'Integrations',
   'Sua IA, sua conta. Use o bot central para preparar despesas e confirme antes de cadastrar.':
     'Your AI, your account. Use the shared bot to prepare expenses and confirm before registering.',
