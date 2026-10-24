@@ -14,7 +14,9 @@ import { IntegrationRepository, IntegrationSettings } from './integration.reposi
 import { AiSettings, BotReply, EntryProposal, TelegramUpdate } from './integration.schema';
 import { SecretVault } from './secret-vault';
 import { TelegramClient } from './telegram.client';
-import { buildTelegramEntry, TelegramDraft } from './telegram-entry';
+import { TelegramDraft, TelegramSplitEntry } from './telegram-entry';
+import { buildTelegramProposal, validatedDraftEntries } from './telegram-split';
+import { telegramSplitPreview } from './telegram-split-preview';
 import { addMonths } from '../finance/calculations';
 import { TelegramContext } from './telegram-context';
 
@@ -248,8 +250,8 @@ export class IntegrationService {
               reply = {
                 chatId,
                 text: english
-                  ? 'Send one complete entry: item, amount, account/card, and optionally date, reporting month, category and a registered responsible person for expenses. Subscription: "Streaming 30 monthly on ML, day 10" (monthly planned schedule). Income: "Received 20 for a sale into Checking" (account required, no card). Monthly income: "Salary 3000 monthly into Checking, day 5" (planned). Installments: total and count, or explicitly each installment amount. Check the type in the preview before confirming. /disconnect unlinks this account. Text only; no transfers or reimbursements.'
-                  : 'Envie um lançamento completo: item, valor, conta/cartão e, se quiser, data, competência, categoria e responsável cadastrado para despesas. Assinatura: "Streaming 30 mensal no ML, dia 10" (previsão mensal). Receita: "Receita de 20 pela venda na conta Corrente" (precisa de conta, sem cartão). Receita mensal: "Salário 3000 todo mês na conta Corrente, dia 5" (previsão). Parcelamento: total e quantidade ou o valor explícito de cada parcela. Confira o tipo na prévia antes de confirmar. /disconnect desvincula esta conta. Somente texto; sem transferências ou reembolsos.',
+                  ? 'Send one complete entry: item, amount, account/card, and optionally date, reporting month, category and a registered responsible person for expenses. Subscription: "Streaming 30 monthly on ML, day 10" (monthly planned schedule). Income: "Received 20 for a sale into Checking" (account required, no card). Monthly income: "Salary 3000 monthly into Checking, day 5" (planned). Installments: total and count, or explicitly each installment amount. Shared purchase: Gas 150, me, Marta and Cacau on ML in 3 installments; Marta pays 50%. Without percentages the split is equal; unspecified participants share the remainder. Check every share in the preview before confirming. /disconnect unlinks this account. Text only; no transfers or reimbursements.'
+                  : 'Envie um lançamento completo: item, valor, conta/cartão e, se quiser, data, competência, categoria e responsável cadastrado para despesas. Assinatura: "Streaming 30 mensal no ML, dia 10" (previsão mensal). Receita: "Receita de 20 pela venda na conta Corrente" (precisa de conta, sem cartão). Receita mensal: "Salário 3000 todo mês na conta Corrente, dia 5" (previsão). Parcelamento: total e quantidade ou o valor explícito de cada parcela. Compra dividida: gas 150, eu, Marta e Cacau no ML em 3x; Marta paga 50%. Sem percentuais a divisão é igual; os demais dividem o restante. Confira todas as partes na prévia antes de confirmar. /disconnect desvincula esta conta. Somente texto; sem transferências ou reembolsos.',
               };
             } else {
               reply = await this.propose(settings, update.update_id, text, english);
@@ -305,7 +307,7 @@ export class IntegrationService {
     const userId = settings.user_id;
     const existing = await this.repository.database.forUser(userId, (database) =>
       database.query<TelegramDraft & Record<string, unknown>>(
-        'SELECT id,data,kind FROM telegram_drafts WHERE user_id=$1 AND update_id=$2',
+        'SELECT id,data,kind,split_entries FROM telegram_drafts WHERE user_id=$1 AND update_id=$2',
         [userId, updateId],
       ),
     );
@@ -322,7 +324,9 @@ export class IntegrationService {
       if (proposal.clarification) {
         reply = { chatId: settings.telegram_user_id!, text: proposal.clarification };
       } else {
-        const { data, kind } = buildTelegramEntry(proposal, references, text);
+        const built = buildTelegramProposal(proposal, references, text);
+        const { data, kind, split_entries } = built;
+        const records = validatedDraftEntries(built);
         await this.repository.database.forUser(userId, async (database) => {
           await database.query(
             'SELECT user_id FROM integration_settings WHERE user_id=$1 FOR UPDATE',
@@ -334,10 +338,19 @@ export class IntegrationService {
             current.telegram_link_version === settings.telegram_link_version &&
             current.encrypted_key === settings.encrypted_key
           ) {
-            await this.finance.validateLinks(userId, data, database);
+            for (const entry of records) {
+              await this.finance.validateLinks(userId, entry, database);
+            }
             await database.query(
-              'INSERT INTO telegram_drafts(id,user_id,update_id,data,kind) VALUES($1,$2,$3,$4,$5) ON CONFLICT(update_id) DO NOTHING',
-              [randomUUID(), userId, updateId, JSON.stringify(data), kind],
+              'INSERT INTO telegram_drafts(id,user_id,update_id,data,kind,split_entries) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(update_id) DO NOTHING',
+              [
+                randomUUID(),
+                userId,
+                updateId,
+                JSON.stringify(data),
+                kind,
+                split_entries ? JSON.stringify(split_entries) : null,
+              ],
             );
           } else {
             throw new BadRequestException(
@@ -348,7 +361,7 @@ export class IntegrationService {
         draft = (
           await this.repository.database.forUser(userId, (database) =>
             database.query<TelegramDraft & Record<string, unknown>>(
-              'SELECT id,data,kind FROM telegram_drafts WHERE user_id=$1 AND update_id=$2',
+              'SELECT id,data,kind,split_entries FROM telegram_drafts WHERE user_id=$1 AND update_id=$2',
               [userId, updateId],
             ),
           )
@@ -393,9 +406,13 @@ export class IntegrationService {
     english: boolean,
   ): BotReply {
     const data = draft.data;
-    const name = (id: unknown) =>
-      references.find((record) => record.id === id)?.data.name ||
-      (english ? 'Not set' : 'Não informada');
+    const name = (id: unknown) => {
+      const value = String(
+        references.find((record) => record.id === id)?.data.name ||
+          (english ? 'Not set' : 'Não informada'),
+      );
+      return draft.split_entries && value.length > 120 ? `${value.slice(0, 117)}…` : value;
+    };
     const amount = new Intl.NumberFormat(english ? 'en-US' : 'pt-BR', {
       style: 'currency',
       currency: 'BRL',
@@ -427,9 +444,10 @@ export class IntegrationService {
             : english
               ? 'Expense'
               : 'Despesa';
+    const split = telegramSplitPreview(draft, references, english);
     return {
       chatId: settings.telegram_user_id!,
-      text: `${english ? 'Review the AI proposal' : 'Confira a proposta da IA'}\n${english ? 'Type' : 'Tipo'}: ${type}\n${data.description}${schedule}\n${data.cardId ? (english ? 'Suggested card' : 'Cartão sugerido') : english ? 'Suggested account' : 'Conta sugerida'}: ${name(data.cardId || data.accountId)}\n${english ? 'Suggested category' : 'Categoria sugerida'}: ${name(data.categoryId)}\n${english ? 'Responsible person' : 'Responsável'}: ${data.personId ? name(data.personId) : english ? 'You' : 'Você'}\n\n${english ? 'Names and abbreviations may have been interpreted. Check the account/card and responsible person before confirming. No reimbursement is marked as received. Expires in 24 hours. To correct, cancel and resend a complete message.' : 'Nomes e siglas podem ter sido interpretados. Confira a conta/cartão e o responsável antes de confirmar. Nenhum reembolso é marcado como recebido. Expira em 24 horas. Para corrigir, cancele e reenvie uma mensagem completa.'}`,
+      text: `${english ? 'Review the AI proposal' : 'Confira a proposta da IA'}\n${english ? 'Type' : 'Tipo'}: ${type}\n${data.description}${schedule}\n${data.cardId ? (english ? 'Suggested card' : 'Cartão sugerido') : english ? 'Suggested account' : 'Conta sugerida'}: ${name(data.cardId || data.accountId)}\n${english ? 'Suggested category' : 'Categoria sugerida'}: ${name(data.categoryId)}${split || `\n${english ? 'Responsible person' : 'Responsável'}: ${data.personId ? name(data.personId) : english ? 'You' : 'Você'}`}\n\n${english ? 'Names and abbreviations may have been interpreted. Check the account/card and responsible person before confirming. No reimbursement is marked as received. Expires in 24 hours. To correct, cancel and resend a complete message.' : 'Nomes e siglas podem ter sido interpretados. Confira a conta/cartão e o responsável antes de confirmar. Nenhum reembolso é marcado como recebido. Expira em 24 horas. Para corrigir, cancele e reenvie uma mensagem completa.'}`,
       buttons: [
         [
           { text: english ? 'Confirm' : 'Confirmar', callback_data: `confirm:${draft.id}` },
@@ -460,10 +478,11 @@ export class IntegrationService {
           id: string;
           data: FinanceData;
           kind: TelegramDraft['kind'];
+          split_entries: TelegramSplitEntry[] | null;
           state: string;
           valid: boolean;
         }>(
-          'SELECT id,data,kind,state,expires_at>NOW() AS valid FROM telegram_drafts WHERE id=$1 AND user_id=$2 FOR UPDATE',
+          'SELECT id,data,kind,split_entries,state,expires_at>NOW() AS valid FROM telegram_drafts WHERE id=$1 AND user_id=$2 FOR UPDATE',
           [match[2], settings.user_id],
         );
         let response = english
@@ -484,20 +503,26 @@ export class IntegrationService {
           if (match[1] === 'confirm') {
             await database.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [settings.user_id]);
             const data = parseRecordData(draft.kind, draft.data);
-            await this.finance.validateLinks(settings.user_id, data, database);
-            const id = randomUUID();
-            await database.query('INSERT INTO records(id,user_id,kind,data) VALUES($1,$2,$3,$4)', [
-              id,
-              settings.user_id,
-              draft.kind,
-              JSON.stringify(data),
-            ]);
+            const entries = validatedDraftEntries(draft);
+            for (const entry of entries) {
+              await this.finance.validateLinks(settings.user_id, entry, database);
+            }
+            const ids = entries.map(() => randomUUID());
+            for (const [index, entry] of entries.entries()) {
+              await database.query(
+                'INSERT INTO records(id,user_id,kind,data) VALUES($1,$2,$3,$4)',
+                [ids[index], settings.user_id, draft.kind, JSON.stringify(entry)],
+              );
+            }
             await database.query(
               "UPDATE telegram_drafts SET state='confirmed',record_id=$1 WHERE id=$2 AND user_id=$3",
-              [id, draft.id, settings.user_id],
+              [ids[0], draft.id, settings.user_id],
             );
-            response =
-              draft.kind === 'installments'
+            response = draft.split_entries
+              ? english
+                ? 'Shared purchase registered! Each participant has one entry; the purchase total was not duplicated. Review the entries in Finance Space.'
+                : 'Compra compartilhada registrada! Cada participante tem uma parte; o total da compra não foi duplicado. Confira os lançamentos no Finance Space.'
+              : draft.kind === 'installments'
                 ? english
                   ? 'Installment plan registered! Fine-tune it under Installments in Finance Space.'
                   : 'Parcelamento registrado! Faça os ajustes finos em Parcelamentos no Finance Space.'

@@ -305,6 +305,13 @@ async function saveInsights() {
         <p class="field-hint">
           {{
             t(
+              'Para dividir uma compra, cite de 2 a 8 participantes cadastrados, incluindo "eu" se você participar. Ex.: "Gás 150, eu, Marta e Cacau, cartão ML, 3x; Marta paga 50%". Sem percentuais, a divisão é igual; percentuais parciais deixam o restante para os demais. Confira todas as partes na prévia antes de confirmar.',
+            )
+          }}
+        </p>
+        <p class="field-hint">
+          {{
+            t(
               'Para despesas de outra pessoa, cite um responsável cadastrado: nome, item, valor e conta/cartão. Ele aparece na prévia e entra nos acertos, sem marcar reembolso como recebido. Só enviamos à IA referências aos nomes citados, não a lista completa de responsáveis nem seus saldos.',
             )
           }}

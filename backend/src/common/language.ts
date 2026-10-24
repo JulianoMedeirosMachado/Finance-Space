@@ -10,6 +10,10 @@ export function requestLanguage(request: Request): Language {
 const english: Record<string, string> = {
   'Informe um responsável cadastrado sem ambiguidade e reenvie a mensagem completa.':
     'Specify an unambiguous registered responsible person and resend the complete message.',
+  'Confira os participantes e percentuais da divisão. Informe todos sem ambiguidade e reenvie a mensagem completa.':
+    'Check the split participants and percentages. Specify all of them unambiguously and resend the complete message.',
+  'O valor é pequeno demais para dividir entre esses participantes e parcelas. Ajuste a divisão ou a quantidade de parcelas.':
+    'The amount is too small for these participants and installments. Adjust the split or installment count.',
   'Confira sua chave e a autorização dos insights na Integração IA.':
     'Check your key and insights authorization in AI integration.',
   'Salve uma chave de IA antes de habilitar os insights.':

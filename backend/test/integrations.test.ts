@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { AuthService } from '../src/auth/auth.service';
 import { DatabaseService } from '../src/database/database.service';
 import { FinanceService } from '../src/finance/finance.service';
+import { monthlyEntries } from '../src/finance/calculations';
 import { AiService, AiCredential } from '../src/integrations/ai.service';
 import { SecretVault } from '../src/integrations/secret-vault';
 import { IntegrationRepository } from '../src/integrations/integration.repository';
@@ -112,6 +113,7 @@ test('AI adapter uses fixed HTTPS endpoints, minimal catalogs, JSON validation a
     assert.match(instructions, /Distinguish merchants from payment instruments/);
     assert.match(instructions, /Only use exact IDs from the catalog/);
     assert.match(instructions, /amountBasis="per_installment"/);
+    assert.match(instructions, /server divides the remainder equally/);
     assert.match(instructions, /nature="income"/);
     assert.match(instructions, /recurrence="monthly"/);
     assert.match(instructions, /Other frequencies \(weekly, yearly, etc.\) are unsupported/);
@@ -167,6 +169,27 @@ test('AI adapter uses fixed HTTPS endpoints, minimal catalogs, JSON validation a
     assert.equal(monthlyIncome.recurrence, 'monthly');
     assert.equal(monthlyIncome.day, 5);
     assert.equal(request.max_tokens, 800);
+    output = JSON.stringify({
+      ...JSON.parse(output),
+      nature: 'expense',
+      recurrence: 'none',
+      day: null,
+      cardId: randomUUID(),
+      accountId: null,
+      participants: [
+        { personId: null, isSelf: true, percentage: null },
+        { personId, isSelf: false, percentage: 50 },
+      ],
+    });
+    const extractedSplit = await ai.interpret(
+      credential,
+      'Gas me and Marta; Marta pays 50%',
+      [],
+      'English',
+    );
+    assert.equal(extractedSplit.participants.length, 2);
+    assert.equal(extractedSplit.participants[0].percentage, null);
+    assert.equal(extractedSplit.participants[1].percentage, 50);
     output = JSON.stringify({
       title: 'Summary',
       summary: 'Only aggregate data is used.',
@@ -367,6 +390,7 @@ test(
         endMonth: null,
         personId: null,
         personMentioned: false,
+        participants: [],
       };
       const proposal = await service().handle(
         message(10, 101, 'Paper 22,90 on ML card for November'),
@@ -733,6 +757,157 @@ test(
         }
       }
       worker.onModuleDestroy();
+      const people = await restartedFinance.list(alice.id);
+      const own =
+        people.find((record) => record.kind === 'people' && record.data.isSelf) ??
+        (await restartedFinance.save(alice.id, 'people', { name: 'Self', isSelf: true }));
+      const secondPerson = await restartedFinance.save(alice.id, 'people', {
+        name: 'Cacau',
+        isSelf: false,
+      });
+      const foreignPerson = await restartedFinance.save(bob.id, 'people', {
+        name: 'Foreign person',
+        isSelf: false,
+      });
+      await link(bob.id, 202, 400);
+      for (const [index, percentages] of [
+        [null, null, null],
+        [50, 30, 20],
+        [null, 50, null],
+      ].entries()) {
+        await database.query(
+          'UPDATE integration_settings SET ai_last_at=NULL,ai_count=0 WHERE user_id=$1',
+          [alice.id],
+        );
+        const description = `Shared gas ${index}`;
+        ai.proposal = {
+          ...ai.proposal,
+          description,
+          nature: 'expense',
+          recurrence: 'none',
+          amount: 15001,
+          installments: index === 1 ? 1 : 3,
+          amountBasis: 'total',
+          cardId: String(card.id),
+          accountId: null,
+          month: '2026-10',
+          personId: null,
+          personMentioned: false,
+          day: null,
+          endMonth: null,
+          participants: [
+            { personId: null, isSelf: true, percentage: percentages[0] },
+            { personId: String(responsible.id), isSelf: false, percentage: percentages[1] },
+            { personId: String(secondPerson.id), isSelf: false, percentage: percentages[2] },
+          ],
+        };
+        const preview = await service().handle(
+          message(500 + index, 101, 'Gas eu Marta Cacau no cartao ML'),
+        );
+        assert.match(preview!.text, /Purchase split/);
+        assert.match(preview!.text, /Marta Silva/);
+        assert.match(preview!.text, /Cacau/);
+        assert.equal(
+          (await restartedFinance.list(alice.id)).filter(
+            (record) => record.data.description === description,
+          ).length,
+          0,
+        );
+        const action = preview!.buttons![0][0].callback_data;
+        const foreign = await service().handle(callback(510 + index, 202, action));
+        assert.doesNotMatch(foreign!.text, /Marta|Cacau|Shared gas/);
+        if (index === 0) {
+          const stored = (
+            await database.query(
+              'SELECT id,split_entries FROM telegram_drafts WHERE update_id=$1',
+              [500 + index],
+            )
+          )[0];
+          const invalid = structuredClone(stored.split_entries) as {
+            data: Record<string, unknown>;
+          }[];
+          invalid[1].data.personId = foreignPerson.id;
+          await database.query('UPDATE telegram_drafts SET split_entries=$1 WHERE id=$2', [
+            JSON.stringify(invalid),
+            stored.id,
+          ]);
+          await service().handle(callback(520, 101, action));
+          assert.equal(
+            (await restartedFinance.list(alice.id)).filter(
+              (record) => record.data.description === description,
+            ).length,
+            0,
+          );
+          assert.equal(
+            (await database.query('SELECT state FROM telegram_drafts WHERE id=$1', [stored.id]))[0]
+              .state,
+            'pending',
+          );
+          await database.query('UPDATE telegram_drafts SET split_entries=$1 WHERE id=$2', [
+            JSON.stringify(stored.split_entries),
+            stored.id,
+          ]);
+        }
+        if (index === 2) {
+          await database.query(
+            `ALTER TABLE records ADD CONSTRAINT split_rollback_test CHECK (NOT(data->>'description'='Shared gas 2' AND data->>'personId'='${secondPerson.id}'))`,
+          );
+          try {
+            await service().handle(callback(525, 101, action));
+            assert.equal(
+              (await restartedFinance.list(alice.id)).filter(
+                (record) => record.data.description === description,
+              ).length,
+              0,
+            );
+            assert.equal(
+              (
+                await database.query('SELECT state FROM telegram_drafts WHERE update_id=$1', [502])
+              )[0].state,
+              'pending',
+            );
+          } finally {
+            await database.query('ALTER TABLE records DROP CONSTRAINT split_rollback_test');
+          }
+        }
+        const confirmations = await Promise.all([
+          service().handle(callback(530 + index, 101, action)),
+          service().handle(callback(540 + index, 101, action)),
+        ]);
+        assert.ok(
+          confirmations.some((reply) => reply!.text.includes('Shared purchase registered')),
+        );
+        const saved = (await restartedFinance.list(alice.id)).filter(
+          (record) => record.data.description === description,
+        );
+        assert.equal(saved.length, 3);
+        assert.deepEqual(
+          new Set(saved.map((record) => record.data.personId)),
+          new Set([own.id, responsible.id, secondPerson.id]),
+        );
+        const first = monthlyEntries(saved, '2026-10');
+        assert.equal(
+          first.reduce((sum, entry) => sum + entry.amount, 0),
+          index === 1 ? 15001 : 5000,
+        );
+        if (index !== 1) {
+          assert.equal(
+            monthlyEntries(saved, '2026-12').reduce((sum, entry) => sum + entry.amount, 0),
+            5001,
+          );
+          await restartedFinance.realize(alice.id, '2026-10', saved[0].id);
+          const entries = (await restartedFinance.dashboard(alice.id, '2026-10')).entries.filter(
+            (entry) => entry.sourceId === saved[0].id,
+          );
+          assert.equal(entries.length, 1);
+        }
+        assert.equal(
+          (await restartedFinance.list(bob.id)).filter(
+            (record) => record.data.description === description,
+          ).length,
+          0,
+        );
+      }
     } finally {
       await database.onModuleDestroy();
       for (const name of names) {

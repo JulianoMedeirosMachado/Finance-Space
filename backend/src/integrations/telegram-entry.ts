@@ -7,6 +7,13 @@ export interface TelegramDraft {
   id: string;
   kind: 'transactions' | 'installments' | 'recurring' | 'income';
   data: FinanceData;
+  split_entries?: TelegramSplitEntry[] | null;
+}
+export interface TelegramSplitEntry {
+  data: FinanceData;
+  total: number;
+  weight: number;
+  weightTotal: number;
 }
 
 export function buildTelegramEntry(
