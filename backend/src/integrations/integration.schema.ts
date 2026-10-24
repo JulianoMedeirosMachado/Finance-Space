@@ -75,6 +75,18 @@ export const entryProposalSchema = z
     categoryId: z.uuid().nullable(),
     personId: z.uuid().nullable().default(null),
     personMentioned: z.boolean().default(false),
+    participants: z
+      .array(
+        z
+          .object({
+            personId: z.uuid().nullable(),
+            isSelf: z.boolean(),
+            percentage: z.number().positive().max(100).multipleOf(0.01).nullable(),
+          })
+          .strict(),
+      )
+      .max(8)
+      .default([]),
     clarification: z.string().max(400).nullable(),
     installments: z.number().int().min(1).max(600).default(1),
     amountBasis: z.enum(['total', 'per_installment']).default('total'),
