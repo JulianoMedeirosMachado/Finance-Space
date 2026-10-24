@@ -1,4 +1,6 @@
 export const english: Record<string, string> = {
+  'Ordenar {column} em ordem crescente': 'Sort {column} ascending',
+  'Ordenar {column} em ordem decrescente': 'Sort {column} descending',
   'Para dividir uma compra, cite de 2 a 8 participantes cadastrados, incluindo "eu" se você participar. Ex.: "Gás 150, eu, Marta e Cacau, cartão ML, 3x; Marta paga 50%". Sem percentuais, a divisão é igual; percentuais parciais deixam o restante para os demais. Confira todas as partes na prévia antes de confirmar.':
     'To split a purchase, name 2 to 8 registered participants, including "me" if you participate. E.g. "Gas 150, me, Marta and Cacau, ML card, 3 installments; Marta pays 50%". Without percentages the split is equal; partial percentages leave the remainder for the others. Review every share in the preview before confirming.',
   Ativados: 'Enabled',

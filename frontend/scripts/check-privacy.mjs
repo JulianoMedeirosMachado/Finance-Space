@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
-import { createSSRApp } from 'vue';
+import { createSSRApp, computed, ref } from 'vue';
 import { createPinia } from 'pinia';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import { renderToString } from '@vue/server-renderer';
@@ -109,6 +109,63 @@ try {
   };
   const render = (component, props) =>
     renderToString(createSSRApp(component, props).use(pinia).use(router));
+  const { useTableSort } = await server.ssrLoadModule('/src/composables/useTableSort.ts');
+  const { default: SortableHeader } = await server.ssrLoadModule(
+    '/src/components/SortableHeader.vue',
+  );
+  const sortSource = ref([
+    { id: 'zero', value: 0, date: '2025-12-31', name: 'Água 2', flag: false },
+    { id: 'large', value: 10000, date: '2026-10-24', name: 'Água 10', flag: true },
+    { id: 'negative', value: -100, date: '2026-01-01', name: 'Abacate', flag: false },
+    { id: 'missing', value: undefined, date: undefined, name: undefined, flag: undefined },
+    { id: 'equal', value: 10000, date: '2026-10-24', name: 'Zebra', flag: true },
+  ]);
+  const originalOrder = sortSource.value.map((row) => row.id);
+  const tableSort = useTableSort(
+    computed(() => sortSource.value),
+    computed(() => ({
+      date: (row) => row.date,
+      value: (row) => row.value,
+      name: (row) => row.name,
+      flag: (row) => row.flag,
+    })),
+    'date',
+    'descending',
+  );
+  const sortedIds = () => tableSort.sortedRows.value.map((row) => row.id);
+  assert.deepEqual(sortedIds(), ['large', 'equal', 'negative', 'zero', 'missing']);
+  tableSort.changeSort('value');
+  assert.deepEqual(sortedIds(), ['negative', 'zero', 'large', 'equal', 'missing']);
+  tableSort.changeSort('value');
+  assert.deepEqual(sortedIds(), ['large', 'equal', 'zero', 'negative', 'missing']);
+  assert.equal(tableSort.sortState('value'), 'descending');
+  assert.equal(tableSort.sortState('date'), 'none');
+  tableSort.changeSort('nonexistent');
+  assert.equal(tableSort.sortKey.value, 'value');
+  tableSort.changeSort('name');
+  assert.deepEqual(sortedIds(), ['negative', 'zero', 'large', 'equal', 'missing']);
+  tableSort.changeSort('flag');
+  assert.deepEqual(sortedIds(), ['zero', 'negative', 'large', 'equal', 'missing']);
+  assert.deepEqual(
+    sortSource.value.map((row) => row.id),
+    originalOrder,
+  );
+  sortSource.value = [
+    ...sortSource.value,
+    { id: 'fresh', value: 20000, date: '2026-10-25', name: 'Novo', flag: true },
+  ];
+  assert.equal(tableSort.sortKey.value, 'flag');
+  assert.equal(tableSort.direction.value, 'ascending');
+  assert.ok(sortedIds().includes('fresh'));
+  const header = await render(SortableHeader, { label: 'Data', state: 'descending' });
+  assert.match(header, /scope="col" aria-sort="descending"/);
+  assert.match(header, /type="button"/);
+  assert.match(header, /Ordenar Data em ordem crescente/);
+  const escapedHeader = await render(SortableHeader, {
+    label: '<img src=x onerror=alert(1)>',
+    state: 'none',
+  });
+  assert.doesNotMatch(escapedHeader, /<img src=x/);
   const hidden = await render(Overview);
   assert.equal(privacy.hidden, true);
   assert.match(hidden, /R\$ ••••/);
@@ -381,6 +438,168 @@ try {
   assert.match(integrationsPage, /<h1>Integração IA<\/h1>/);
   assert.match(integrationsPage, /href="\/settings"/);
   assert.match(integrationsPage, /integration-panel/);
+  {
+    const previousRecords = finance.records;
+    const previousMonth = finance.month;
+    const previousDocument = globalThis.document;
+    const previousCreateUrl = URL.createObjectURL;
+    const previousRevokeUrl = URL.revokeObjectURL;
+    let capturedCsv;
+    let clicked = false;
+    try {
+      finance.month = '2026-10';
+      finance.records = [
+        { id: 'a-card', kind: 'cards', version: 1, data: { name: 'Zebra' } },
+        { id: 'z-card', kind: 'cards', version: 1, data: { name: 'Abacate' } },
+        {
+          id: 'old',
+          kind: 'transactions',
+          version: 1,
+          data: {
+            description: 'Older purchase',
+            date: '2026-10-01',
+            month: '2026-10',
+            amount: 900,
+            cardId: 'a-card',
+            nature: 'expense',
+            status: 'paid',
+          },
+        },
+        {
+          id: 'new',
+          kind: 'transactions',
+          version: 1,
+          data: {
+            description: 'New purchase',
+            date: '2026-10-24',
+            month: '2026-10',
+            amount: 10000,
+            cardId: 'z-card',
+            nature: 'expense',
+            status: 'posted',
+          },
+        },
+        {
+          id: 'middle',
+          kind: 'transactions',
+          version: 1,
+          data: {
+            description: 'Middle purchase',
+            date: '2026-10-10',
+            month: '2026-10',
+            amount: 2000,
+            nature: 'expense',
+            status: 'posted',
+          },
+        },
+        {
+          id: 'next-month',
+          kind: 'transactions',
+          version: 1,
+          data: {
+            description: 'Future purchase',
+            date: '2026-11-01',
+            month: '2026-11',
+            amount: 42,
+            nature: 'expense',
+            status: 'posted',
+          },
+        },
+      ];
+      const sourceOrder = finance.records.map((record) => record.id);
+      let table;
+      await render({
+        setup() {
+          table = ResourceView.setup({ kind: 'transactions' }, { expose() {} });
+          return () => null;
+        },
+      });
+      assert.deepEqual(
+        table.rows.value.map((record) => record.id),
+        ['new', 'middle', 'old'],
+      );
+      table.changeSort('amount');
+      assert.deepEqual(
+        table.rows.value.map((record) => record.id),
+        ['old', 'middle', 'new'],
+      );
+      table.changeSort('cardId');
+      assert.deepEqual(
+        table.rows.value.map((record) => record.id),
+        ['new', 'old', 'middle'],
+      );
+      table.search.value = 'abacate';
+      assert.deepEqual(
+        table.rows.value.map((record) => record.id),
+        ['new'],
+      );
+      table.statusFilter.value = 'paid';
+      assert.equal(table.rows.value.length, 0);
+      table.statusFilter.value = 'posted';
+      assert.equal(table.rows.value.length, 1);
+      table.search.value = '';
+      table.statusFilter.value = '';
+      table.allMonths.value = true;
+      assert.equal(table.rows.value.length, 4);
+      assert.equal(table.sortState('cardId'), 'ascending');
+      assert.deepEqual(
+        finance.records.map((record) => record.id),
+        sourceOrder,
+      );
+      table.allMonths.value = false;
+      table.changeSort('date');
+      table.changeSort('date');
+      finance.records = [
+        ...finance.records,
+        {
+          id: 'fresh',
+          kind: 'transactions',
+          version: 1,
+          data: {
+            description: 'Fresh purchase',
+            date: '2026-10-25',
+            month: '2026-10',
+            amount: 1,
+            nature: 'expense',
+            status: 'posted',
+          },
+        },
+      ];
+      assert.equal(table.rows.value[0].id, 'fresh');
+      assert.equal(table.sortState('date'), 'descending');
+      assert.equal(table.amountTotal.value, 12901);
+      assert.equal(finance.month, '2026-10');
+      globalThis.document = {
+        createElement: () => ({
+          click() {
+            clicked = true;
+          },
+        }),
+      };
+      URL.createObjectURL = (blob) => {
+        capturedCsv = blob;
+        return 'blob:synthetic-sort-test';
+      };
+      URL.revokeObjectURL = () => {};
+      table.exportCsv();
+      const csv = await capturedCsv.text();
+      assert.equal(clicked, true);
+      assert.ok(csv.indexOf('Fresh purchase') < csv.indexOf('New purchase'));
+      assert.ok(csv.indexOf('New purchase') < csv.indexOf('Middle purchase'));
+      assert.ok(csv.indexOf('Middle purchase') < csv.indexOf('Older purchase'));
+      assert.doesNotMatch(csv, /Future purchase/);
+    } finally {
+      finance.records = previousRecords;
+      finance.month = previousMonth;
+      URL.createObjectURL = previousCreateUrl;
+      URL.revokeObjectURL = previousRevokeUrl;
+      if (previousDocument === undefined) {
+        delete globalThis.document;
+      } else {
+        globalThis.document = previousDocument;
+      }
+    }
+  }
   const shellSource = await readFile(
     new URL('../src/components/AppShell.vue', import.meta.url),
     'utf8',
@@ -439,7 +658,7 @@ try {
     /Seus insights estão desabilitados/,
   );
   console.log(
-    'Component checks passed: privacy, goals, allowance reconciliation, escaped XSS payloads, CSV protection and Portuguese/English pages and forms.',
+    'Component checks passed: table sorting, privacy, goals, allowance reconciliation, escaped XSS payloads, CSV protection and Portuguese/English pages and forms.',
   );
 } finally {
   await server.close();

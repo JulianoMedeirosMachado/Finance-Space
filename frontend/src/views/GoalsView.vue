@@ -16,6 +16,8 @@ import { money, dateLabel } from '../utils/format';
 import type { FinanceRecord, GoalSummary, RecordData, ResourceKind } from '../types';
 import RecordForm from '../components/RecordForm.vue';
 import ModalPanel from '../components/ModalPanel.vue';
+import SortableHeader from '../components/SortableHeader.vue';
+import { useTableSort, type SortColumns } from '../composables/useTableSort';
 
 const finance = useFinanceStore();
 const goals = computed(() => finance.dashboard?.goals || []);
@@ -29,16 +31,19 @@ const visibleGoals = computed(() =>
 const form = ref<{ kind: ResourceKind; record?: FinanceRecord; initial?: RecordData }>();
 const selectedId = ref('');
 const selectedGoal = computed(() => goals.value.find((goal) => goal.id === selectedId.value));
-const contributions = computed(() =>
-  finance
-    .byKind('goalContributions')
-    .filter((record) => record.data.goalId === selectedId.value)
-    .sort(
-      (a, b) =>
-        String(b.data.date).localeCompare(String(a.data.date)) ||
-        String(b.id).localeCompare(String(a.id)),
-    ),
+const filteredContributions = computed(() =>
+  finance.byKind('goalContributions').filter((record) => record.data.goalId === selectedId.value),
 );
+const contributionColumns = computed<SortColumns<FinanceRecord>>(() => ({
+  date: (record) => record.data.date,
+  amount: (record) => record.data.amount,
+  note: (record) => record.data.note,
+}));
+const {
+  sortedRows: contributions,
+  changeSort: sortContributions,
+  sortState: contributionSortState,
+} = useTableSort(filteredContributions, contributionColumns, 'date', 'descending');
 const deleting = ref<FinanceRecord>();
 const busy = ref(false);
 const error = ref('');
@@ -210,9 +215,21 @@ async function confirmDelete() {
       <table>
         <thead>
           <tr>
-            <th>{{ t('Data') }}</th>
-            <th>{{ t('Valor') }}</th>
-            <th>{{ t('Observação') }}</th>
+            <SortableHeader
+              :label="t('Data')"
+              :state="contributionSortState('date')"
+              @sort="sortContributions('date')"
+            />
+            <SortableHeader
+              :label="t('Valor')"
+              :state="contributionSortState('amount')"
+              @sort="sortContributions('amount')"
+            />
+            <SortableHeader
+              :label="t('Observação')"
+              :state="contributionSortState('note')"
+              @sort="sortContributions('note')"
+            />
             <th>{{ t('Ações') }}</th>
           </tr>
         </thead>

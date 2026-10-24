@@ -236,6 +236,28 @@
   margin-bottom: 1rem;
 }
 
+.table-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.25rem 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.table-sort-button svg {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+.table-sort-button.active,
+.table-sort-button:hover {
+  color: var(--green);
+}
+.table-sort-button.active svg {
+  opacity: 1;
+}
 .integration-panel {
   padding: 1.5rem;
   margin-bottom: 1.5rem;

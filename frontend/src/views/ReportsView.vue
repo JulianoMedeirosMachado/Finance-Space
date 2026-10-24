@@ -5,7 +5,50 @@ import { useFinanceStore } from '../stores/finance';
 import { money, monthLabel } from '../utils/format';
 import TrendChart from '../components/TrendChart.vue';
 import StatCard from '../components/StatCard.vue';
+import SortableHeader from '../components/SortableHeader.vue';
+import { computed } from 'vue';
+import { useTableSort, type SortColumns } from '../composables/useTableSort';
+import type { Dashboard } from '../types';
 const finance = useFinanceStore();
+const trendColumns = computed<SortColumns<Dashboard['trend'][number]>>(() => ({
+  month: (row) => row.month,
+  income: (row) => row.income,
+  expenses: (row) => row.expenses,
+  investments: (row) => row.investments,
+  freeBalance: (row) => row.freeBalance,
+}));
+const trendHeaders = computed(() => [
+  { key: 'month', label: t('Competência') },
+  { key: 'income', label: t('Receitas') },
+  { key: 'expenses', label: t('Despesas') },
+  { key: 'investments', label: t('Investimentos') },
+  { key: 'freeBalance', label: t('Saldo livre previsto') },
+]);
+const {
+  sortedRows: trendRows,
+  changeSort: sortTrend,
+  sortState: trendSortState,
+} = useTableSort(
+  computed(() => finance.dashboard?.trend || []),
+  trendColumns,
+  'month',
+);
+const categoryColumns = computed<SortColumns<Dashboard['categories'][number]>>(() => ({
+  name: (row) => (row.uncategorized ? t('Sem categoria') : row.name),
+  amount: (row) => row.amount,
+  share: (row) =>
+    finance.dashboard?.expenses ? row.amount / finance.dashboard.expenses : undefined,
+}));
+const {
+  sortedRows: categoryRows,
+  changeSort: sortCategories,
+  sortState: categorySortState,
+} = useTableSort(
+  computed(() => finance.dashboard?.categories || []),
+  categoryColumns,
+  'amount',
+  'descending',
+);
 </script>
 <template>
   <div class="page-heading">
@@ -48,15 +91,17 @@ const finance = useFinanceStore();
         <table>
           <thead>
             <tr>
-              <th>{{ t('Competência') }}</th>
-              <th>{{ t('Receitas') }}</th>
-              <th>{{ t('Despesas') }}</th>
-              <th>{{ t('Investimentos') }}</th>
-              <th>{{ t('Saldo livre previsto') }}</th>
+              <SortableHeader
+                v-for="column in trendHeaders"
+                :key="column.key"
+                :label="column.label"
+                :state="trendSortState(column.key)"
+                @sort="sortTrend(column.key)"
+              />
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in finance.dashboard.trend" :key="item.month">
+            <tr v-for="item in trendRows" :key="item.month">
               <td>{{ monthLabel(item.month) }}</td>
               <td>{{ money(item.income) }}</td>
               <td>{{ money(item.expenses) }}</td>
@@ -78,13 +123,25 @@ const finance = useFinanceStore();
         <table>
           <thead>
             <tr>
-              <th>{{ t('Categoria') }}</th>
-              <th>{{ t('Valor') }}</th>
-              <th>{{ t('Participação nas despesas') }}</th>
+              <SortableHeader
+                :label="t('Categoria')"
+                :state="categorySortState('name')"
+                @sort="sortCategories('name')"
+              />
+              <SortableHeader
+                :label="t('Valor')"
+                :state="categorySortState('amount')"
+                @sort="sortCategories('amount')"
+              />
+              <SortableHeader
+                :label="t('Participação nas despesas')"
+                :state="categorySortState('share')"
+                @sort="sortCategories('share')"
+              />
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in finance.dashboard.categories" :key="item.name">
+            <tr v-for="item in categoryRows" :key="item.name">
               <td>{{ item.uncategorized ? t('Sem categoria') : item.name }}</td>
               <td>{{ money(item.amount) }}</td>
               <td>

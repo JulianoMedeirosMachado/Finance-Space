@@ -6,6 +6,8 @@ import { Search, Check, CalendarDays } from 'lucide-vue-next';
 import { useFinanceStore } from '../stores/finance';
 import { money, monthLabel, natureLabels, statusLabels } from '../utils/format';
 import RecordForm from '../components/RecordForm.vue';
+import SortableHeader from '../components/SortableHeader.vue';
+import { useTableSort, type SortColumns } from '../composables/useTableSort';
 import type { FinanceRecord, MonthlyEntry } from '../types';
 const finance = useFinanceStore();
 const search = ref('');
@@ -16,7 +18,7 @@ const error = ref('');
 const selected = ref<MonthlyEntry>();
 const selectedAccount = ref('');
 const editing = ref<FinanceRecord>();
-const entries = computed(() =>
+const filteredEntries = computed(() =>
   (finance.dashboard?.entries || []).filter(
     (entry) =>
       entry.description.toLowerCase().includes(search.value.toLowerCase()) &&
@@ -24,6 +26,34 @@ const entries = computed(() =>
       (!nature.value || entry.nature === nature.value),
   ),
 );
+const columns = computed(() => [
+  { key: 'description', label: t('Descrição') },
+  { key: 'person', label: t('Responsável') },
+  { key: 'nature', label: t('Natureza') },
+  { key: 'payment', label: t('Conta / cartão') },
+  { key: 'installment', label: t('Parcela') },
+  { key: 'endMonth', label: t('Término') },
+  { key: 'remainingAmount', label: t('Saldo após o mês') },
+  { key: 'amount', label: t('Valor') },
+  { key: 'status', label: t('Situação') },
+]);
+const sortColumns = computed<SortColumns<MonthlyEntry>>(() => ({
+  description: (entry) => entry.description,
+  person: (entry) => finance.records.find((record) => record.id === entry.personId)?.data.name,
+  nature: (entry) => t(natureLabels[entry.nature] || entry.nature),
+  payment: (entry) =>
+    finance.records.find((record) => record.id === (entry.cardId || entry.accountId))?.data.name,
+  installment: (entry) => entry.installment,
+  endMonth: (entry) => entry.endMonth,
+  remainingAmount: (entry) => entry.remainingAmount,
+  amount: (entry) => entry.amount,
+  status: (entry) => t(statusLabels[entry.status] || entry.status),
+}));
+const {
+  sortedRows: entries,
+  changeSort,
+  sortState,
+} = useTableSort(filteredEntries, sortColumns, 'amount', 'descending');
 const total = computed(() => entries.value.reduce((sum, entry) => sum + entry.amount, 0));
 async function realize() {
   busy.value = true;
@@ -79,15 +109,13 @@ async function realize() {
       <table>
         <thead>
           <tr>
-            <th>{{ t('Descrição') }}</th>
-            <th>{{ t('Responsável') }}</th>
-            <th>{{ t('Natureza') }}</th>
-            <th>{{ t('Conta / cartão') }}</th>
-            <th>{{ t('Parcela') }}</th>
-            <th>{{ t('Término') }}</th>
-            <th>{{ t('Saldo após o mês') }}</th>
-            <th>{{ t('Valor') }}</th>
-            <th>{{ t('Situação') }}</th>
+            <SortableHeader
+              v-for="column in columns"
+              :key="column.key"
+              :label="column.label"
+              :state="sortState(column.key)"
+              @sort="changeSort(column.key)"
+            />
             <th>{{ t('Ação') }}</th>
           </tr>
         </thead>
