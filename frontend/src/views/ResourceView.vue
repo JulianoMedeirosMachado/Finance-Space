@@ -8,6 +8,8 @@ import { useFinanceStore } from '../stores/finance';
 import { dateLabel, money, monthLabel, natureLabels, statusLabels } from '../utils/format';
 import RecordForm from '../components/RecordForm.vue';
 import StatCard from '../components/StatCard.vue';
+import SortableHeader from '../components/SortableHeader.vue';
+import { useTableSort, type SortColumns } from '../composables/useTableSort';
 import type { FinanceRecord, RecordData, ResourceKind } from '../types';
 import { serializeCsv } from '../utils/csv';
 const props = defineProps<{ kind: ResourceKind }>();
@@ -23,17 +25,48 @@ const deleting = ref<FinanceRecord>();
 const busy = ref(false);
 const error = ref('');
 const scopedKinds = ['transactions', 'invoices', 'benefits', 'settlements', 'history'];
-const rows = computed(() =>
+const filteredRows = computed(() =>
   finance.byKind(props.kind).filter((record) => {
     const matchesMonth =
       allMonths.value || !scopedKinds.includes(props.kind) || record.data.month === finance.month;
     const matchesStatus = !statusFilter.value || record.data.status === statusFilter.value;
     const haystack = Object.entries(record.data)
-      .map(([key, value]) => (key.endsWith(t('Id')) ? finance.label(value) : value))
+      .map(([key, value]) => (key.endsWith('Id') ? finance.label(value) : value))
       .join(' ')
       .toLowerCase();
     return matchesMonth && matchesStatus && haystack.includes(search.value.toLowerCase());
   }),
+);
+const sortColumns = computed<SortColumns<FinanceRecord>>(() =>
+  Object.fromEntries(
+    definition.value.columns.map((key) => [
+      key,
+      (record: FinanceRecord) => {
+        const field = definition.value.fields.find((item) => item.key === key);
+        const value = record.data[key];
+        let result = value;
+        if (field?.source) {
+          result = value ? finance.records.find((item) => item.id === value)?.data.name : undefined;
+        } else if (field?.type === 'select' && value !== undefined && value !== '') {
+          result = display(record, key);
+        }
+        return result;
+      },
+    ]),
+  ),
+);
+const initialSort = ['date', 'month', 'startMonth'].find((key) =>
+  definition.value.columns.includes(key),
+);
+const {
+  sortedRows: rows,
+  changeSort,
+  sortState,
+} = useTableSort(
+  filteredRows,
+  sortColumns,
+  initialSort ?? definition.value.columns[0],
+  initialSort ? 'descending' : 'ascending',
 );
 const amountTotal = computed(() =>
   rows.value.reduce(
@@ -254,9 +287,17 @@ function exportCsv() {
       <table>
         <thead>
           <tr>
-            <th v-for="key in definition.columns" :key="key">
-              {{ definition.fields.find((field) => field.key === key)?.label.replace(' (R$)', '') }}
-            </th>
+            <SortableHeader
+              v-for="key in definition.columns"
+              :key="key"
+              :label="
+                (definition.fields.find((field) => field.key === key)?.label || key)
+                  .replace(' (R$)', '')
+                  .replace(' (BRL)', '')
+              "
+              :state="sortState(key)"
+              @sort="changeSort(key)"
+            />
             <th v-if="!definition.readOnly" class="actions-cell">{{ t('Ações') }}</th>
           </tr>
         </thead>

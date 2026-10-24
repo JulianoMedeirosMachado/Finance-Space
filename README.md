@@ -49,6 +49,8 @@ Use the application screens to enter records and **Configurações → Históric
 
 ## AI and Telegram
 
+Financial tables support ascending/descending sorting through accessible column-header buttons. Transactions and other dated lists open newest first; values compare integer amounts, dates compare ISO values and references compare displayed names. Sorting preserves filters/search, remains selected while refreshing data, and does not mutate store/chart data. Missing values remain last in both directions. CSV exports follow the visible filtered order. The same controls apply to resource lists, the monthly overview, report tables and goal-contribution history; report charts keep chronological source order.
+
 This integration is optional. The application remains usable without any AI/bot secrets. There is one centrally administered Telegram bot; each account supplies and pays for its own AI provider key. No provider SDK, separate bot process or polling service is required.
 
 ### Server setup (once per deployment)
