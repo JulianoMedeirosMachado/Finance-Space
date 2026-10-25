@@ -207,6 +207,7 @@ const definitions: Record<ResourceKind, ResourceDefinition> = {
         options: [
           { value: 'income', label: 'Crédito' },
           { value: 'expense', label: 'Compra' },
+          { value: 'adjustment', label: 'Correção de saldo' },
         ],
       },
       { ...field('amount', 'Valor (R$)', 'money', true), min: 0 },

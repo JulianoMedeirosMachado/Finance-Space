@@ -41,6 +41,7 @@ test('legacy schema upgrades preserve data and goals and contributions survive s
     "ALTER TABLE telegram_drafts DROP CONSTRAINT telegram_drafts_kind_check, ADD CONSTRAINT telegram_drafts_kind_check CHECK(kind IN ('transactions','installments'))",
   );
   await original.query('DELETE FROM schema_migrations WHERE version=6');
+  await original.query('DELETE FROM schema_migrations WHERE version=9');
   await original.query(
     'ALTER TABLE telegram_updates DROP COLUMN actor_id,DROP COLUMN owner_id,DROP COLUMN binding_version,DROP COLUMN link_hash,DROP COLUMN lease_token',
   );
@@ -79,6 +80,7 @@ test('legacy schema upgrades preserve data and goals and contributions survive s
   )[0].definition;
   assert.match(String(kindConstraint), /recurring/);
   assert.match(String(kindConstraint), /income/);
+  assert.match(String(kindConstraint), /benefits/);
   const upgradedAuth = new AuthService(upgraded);
   assert.equal(
     (
@@ -113,7 +115,7 @@ test('legacy schema upgrades preserve data and goals and contributions survive s
     (await restarted.query('SELECT version FROM schema_migrations ORDER BY version')).map(
       (row) => row.version,
     ),
-    [1, 2, 3, 4, 5, 6, 7, 8],
+    [1, 2, 3, 4, 5, 6, 7, 8, 9],
   );
   assert.equal((await new AuthService(restarted).findUser(session.token)).language, 'en-US');
   await restarted.onModuleDestroy();

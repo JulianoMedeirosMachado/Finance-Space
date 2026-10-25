@@ -60,6 +60,7 @@ export const entryProposalSchema = z
   .object({
     description: z.string().trim().min(1).max(250),
     nature: z.enum(['expense', 'income']).default('expense'),
+    paymentType: z.enum(['regular', 'meal_allowance']).default('regular'),
     recurrence: z.enum(['none', 'monthly']).default('none'),
     day: z.number().int().min(1).max(31).nullable().default(null),
     endMonth: z

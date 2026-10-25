@@ -115,6 +115,11 @@ test('AI adapter uses fixed HTTPS endpoints, minimal catalogs, JSON validation a
     assert.match(instructions, /amountBasis="per_installment"/);
     assert.match(instructions, /server divides the remainder equally/);
     assert.match(instructions, /nature="income"/);
+    assert.match(instructions, /paymentType="meal_allowance"/);
+    assert.match(
+      instructions,
+      /Food, grocery shopping, a merchant or a benefit-card brand alone does NOT imply this benefit/,
+    );
     assert.match(instructions, /recurrence="monthly"/);
     assert.match(instructions, /Other frequencies \(weekly, yearly, etc.\) are unsupported/);
     const personId = randomUUID();
@@ -190,6 +195,24 @@ test('AI adapter uses fixed HTTPS endpoints, minimal catalogs, JSON validation a
     assert.equal(extractedSplit.participants.length, 2);
     assert.equal(extractedSplit.participants[0].percentage, null);
     assert.equal(extractedSplit.participants[1].percentage, 50);
+    for (const nature of ['expense', 'income']) {
+      output = JSON.stringify({
+        description: 'Meal allowance',
+        paymentType: 'meal_allowance',
+        nature,
+        amount: 2290,
+        date: '2026-10-23',
+        month: '2026-10',
+        accountId: null,
+        cardId: null,
+        categoryId: null,
+        clarification: null,
+      });
+      const benefit = await ai.interpret(credential, 'Meal allowance 22.90', [], 'English');
+      assert.equal(benefit.paymentType, 'meal_allowance');
+      assert.equal(benefit.nature, nature);
+      assert.equal(benefit.cardId, null);
+    }
     output = JSON.stringify({
       title: 'Summary',
       summary: 'Only aggregate data is used.',
@@ -375,6 +398,7 @@ test(
       });
       ai.proposal = {
         description: 'Paper',
+        paymentType: 'regular',
         amount: 2290,
         date: '2026-10-23',
         month: '2026-11',
@@ -660,7 +684,22 @@ test(
         name: 'Checking',
         openingMonth: '2026-10',
       });
+      const help = await service().handle(message(299, 101, '/help'));
+      assert.match(help!.text, /Meal allowance credit of 672/);
       const entryCases = [
+        ...(['expense', 'income'] as const).map((nature) => ({
+          description: `Meal allowance ${nature}`,
+          nature,
+          paymentType: 'meal_allowance' as const,
+          recurrence: 'none' as const,
+          day: null,
+          endMonth: null,
+          accountId: null,
+          cardId: null,
+          expectedKind: 'benefits',
+          preview: /Meal allowance — (purchase|credit)/,
+          confirmation: /Meal allowance entry registered/,
+        })),
         {
           description: 'Streaming subscription',
           nature: 'expense' as const,
@@ -706,6 +745,7 @@ test(
         ai.proposal = {
           ...ai.proposal,
           description: entry.description,
+          paymentType: 'paymentType' in entry ? entry.paymentType : 'regular',
           nature: entry.nature,
           recurrence: entry.recurrence,
           day: entry.day,
@@ -717,10 +757,30 @@ test(
           installments: 1,
           amount: 2000,
         };
-        const preview = await service().handle(
-          message(300 + index, 101, 'Complete financial entry'),
-        );
+        let preview = await service().handle(message(300 + index, 101, 'Complete financial entry'));
         assert.match(preview!.text, entry.preview);
+        if (entry.expectedKind === 'benefits') {
+          assert.match(preview!.text, /Recorded only in meal allowance/);
+          assert.doesNotMatch(
+            preview!.text,
+            /Suggested account:|Suggested card:|Responsible person:/,
+          );
+          const cancelled = await service().handle(
+            callback(340 + index, 101, preview!.buttons![0][1].callback_data),
+          );
+          assert.match(cancelled!.text, /Cancelled/);
+          await service().handle(callback(345 + index, 101, preview!.buttons![0][0].callback_data));
+          assert.equal(
+            (await restartedFinance.list(alice.id)).filter(
+              (record) => record.data.description === entry.description,
+            ).length,
+            0,
+          );
+          await database.query('UPDATE integration_settings SET ai_last_at=NULL WHERE user_id=$1', [
+            alice.id,
+          ]);
+          preview = await service().handle(message(350 + index, 101, 'Complete financial entry'));
+        }
         if (entry.recurrence === 'monthly') {
           assert.match(preview!.text, /Planned monthly schedule only/);
           assert.match(preview!.text, /First reporting month: 2026-10/);
@@ -749,7 +809,14 @@ test(
         assert.equal(saved.length, 1);
         assert.equal(saved[0].kind, entry.expectedKind);
         assert.equal(saved[0].data.nature, entry.nature);
-        assert.equal(saved[0].data.status, entry.recurrence === 'monthly' ? 'planned' : 'paid');
+        assert.equal(
+          saved[0].data.status,
+          entry.expectedKind === 'benefits'
+            ? undefined
+            : entry.recurrence === 'monthly'
+              ? 'planned'
+              : 'paid',
+        );
         if (entry.recurrence === 'monthly') {
           await restartedFinance.realize(alice.id, '2026-11', saved[0].id);
           const monthly = await restartedFinance.dashboard(alice.id, '2026-11');

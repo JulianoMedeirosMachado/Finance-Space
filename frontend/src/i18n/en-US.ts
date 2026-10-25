@@ -1,4 +1,26 @@
 export const english: Record<string, string> = {
+  'Esta correção guarda a diferença aplicada, não o saldo final. Para informar um novo saldo real, use Corrigir saldo.':
+    'This correction stores the applied difference, not the final balance. To enter a new actual balance, use Correct balance.',
+  'Corrigir saldo': 'Correct balance',
+  'Corrigir saldo do vale': 'Correct meal allowance balance',
+  'Correção de saldo': 'Balance correction',
+  'Saldo do vale corrigido.': 'Meal allowance balance corrected.',
+  'Saldo dos meses anteriores, incluindo correções':
+    'Previous months’ balance, including corrections',
+  'Saldo anterior + créditos − consumo + correções':
+    'Previous balance + credits − purchases + corrections',
+  'em correções': 'in corrections',
+  'Informe o saldo real considerando todos os lançamentos até esta competência, incluindo o crédito do mês se ele já foi registrado. A diferença será salva como correção, sem contar como compra ou crédito.':
+    'Enter the actual balance considering all entries through this reporting month, including this month’s credit if already recorded. The difference will be saved as a correction, without counting as a purchase or credit.',
+  'Saldo calculado': 'Calculated balance',
+  'Saldo real no vale (R$)': 'Actual meal allowance balance (BRL)',
+  'Correção a registrar': 'Correction to record',
+  'O saldo informado já corresponde ao calculado. Nenhuma correção é necessária.':
+    'The entered balance already matches the calculated balance. No correction is needed.',
+  'Atualizar saldo calculado': 'Refresh calculated balance',
+  'Confirmar correção': 'Confirm correction',
+  'Vale-alimentação: envie "Mercado 50 no vale alimentação" ou "Crédito de 672 no VA". Compras e créditos ficam separados das contas e faturas. Não aceita parcelas, divisões ou recorrências. Confira a prévia antes de confirmar.':
+    'Meal allowance: send "Groceries 50 using meal allowance" or "Meal allowance credit of 672". Purchases and credits stay separate from accounts and card bills. Installments, splits and recurrences are not supported. Check the preview before confirming.',
   'Ordenar {column} em ordem crescente': 'Sort {column} ascending',
   'Ordenar {column} em ordem decrescente': 'Sort {column} descending',
   'Para dividir uma compra, cite de 2 a 8 participantes cadastrados, incluindo "eu" se você participar. Ex.: "Gás 150, eu, Marta e Cacau, cartão ML, 3x; Marta paga 50%". Sem percentuais, a divisão é igual; percentuais parciais deixam o restante para os demais. Confira todas as partes na prévia antes de confirmar.':

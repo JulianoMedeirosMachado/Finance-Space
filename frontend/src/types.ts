@@ -57,6 +57,7 @@ export interface Dashboard {
   benefits: {
     credits: number;
     spent: number;
+    adjustments: number;
     previousBalance: number;
     monthBalance: number;
     balance: number;

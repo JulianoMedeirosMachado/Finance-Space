@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { entryProposalSchema } from '../src/integrations/integration.schema';
 import { buildTelegramEntry } from '../src/integrations/telegram-entry';
-import { monthlyEntries } from '../src/finance/calculations';
+import { monthlyEntries, summarize } from '../src/finance/calculations';
+import { buildTelegramProposal, validatedDraftEntries } from '../src/integrations/telegram-split';
 import type { FinanceRecord } from '../src/finance/finance.schema';
 
 function proposal(overrides: Record<string, unknown> = {}) {
@@ -93,4 +94,72 @@ test('Telegram entry validation rejects unsafe combinations and unsupported recu
   assert.equal(entryProposalSchema.safeParse({ ...input, recurrence: 'yearly' }).success, false);
   assert.equal(entryProposalSchema.safeParse({ ...input, recurrence: 'weekly' }).success, false);
   assert.equal(entryProposalSchema.safeParse({ ...input, day: 32 }).success, false);
+});
+
+test('Telegram meal allowance purchases and credits use only the separate benefit ledger', () => {
+  const records: FinanceRecord[] = [];
+  for (const [nature, amount] of [
+    ['income', 67200],
+    ['expense', 2290],
+  ] as const) {
+    const draft = buildTelegramProposal(
+      proposal({
+        paymentType: 'meal_allowance',
+        nature,
+        amount,
+        cardId: null,
+      }),
+      [],
+      'Vale alimentação',
+    );
+    assert.equal(draft.kind, 'benefits');
+    assert.equal(draft.split_entries, null);
+    assert.deepEqual(validatedDraftEntries(draft), [
+      {
+        description: 'Streaming',
+        nature,
+        amount,
+        date: '2026-10-23',
+        month: '2026-10',
+        note: '',
+      },
+    ]);
+    records.push({ id: randomUUID(), version: 1, kind: draft.kind, data: draft.data });
+  }
+  const summary = summarize(records, '2026-10');
+  assert.equal(summary.benefits.balance, 64910);
+  assert.equal(summary.benefits.spent, 2290);
+  assert.equal(summary.income, 0);
+  assert.equal(summary.expenses, 0);
+  assert.equal(monthlyEntries(records, '2026-10').length, 0);
+  for (const overrides of [
+    { cardId: randomUUID() },
+    { accountId: randomUUID() },
+    { categoryId: randomUUID() },
+    { personId: randomUUID() },
+    { personMentioned: true },
+    { installments: 3 },
+    { recurrence: 'monthly' },
+    { day: 10 },
+    { endMonth: '2027-01' },
+    {
+      participants: [
+        { personId: null, isSelf: true, percentage: null },
+        { personId: randomUUID(), isSelf: false, percentage: null },
+      ],
+    },
+  ]) {
+    assert.throws(() =>
+      buildTelegramProposal(
+        proposal({
+          paymentType: 'meal_allowance',
+          cardId: null,
+          ...overrides,
+        }),
+        [],
+        'Vale alimentação eu e Marta',
+      ),
+    );
+  }
+  assert.equal(proposal().paymentType, 'regular');
 });

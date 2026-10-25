@@ -382,6 +382,13 @@ async function saveInsights() {
               )
             }}
           </p>
+          <p class="field-hint">
+            {{
+              t(
+                'Vale-alimentação: envie "Mercado 50 no vale alimentação" ou "Crédito de 672 no VA". Compras e créditos ficam separados das contas e faturas. Não aceita parcelas, divisões ou recorrências. Confira a prévia antes de confirmar.',
+              )
+            }}
+          </p>
         </template>
       </div>
     </template>

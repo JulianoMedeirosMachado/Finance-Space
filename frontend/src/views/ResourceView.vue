@@ -9,6 +9,7 @@ import { dateLabel, money, monthLabel, natureLabels, statusLabels } from '../uti
 import RecordForm from '../components/RecordForm.vue';
 import StatCard from '../components/StatCard.vue';
 import SortableHeader from '../components/SortableHeader.vue';
+import BenefitCorrectionForm from '../components/BenefitCorrectionForm.vue';
 import { useTableSort, type SortColumns } from '../composables/useTableSort';
 import type { FinanceRecord, RecordData, ResourceKind } from '../types';
 import { serializeCsv } from '../utils/csv';
@@ -19,6 +20,7 @@ const search = ref('');
 const statusFilter = ref('');
 const allMonths = ref(false);
 const formOpen = ref(false);
+const correctionOpen = ref(false);
 const editing = ref<FinanceRecord>();
 const initial = ref<RecordData>();
 const deleting = ref<FinanceRecord>();
@@ -82,7 +84,14 @@ function display(record: FinanceRecord, key: string) {
   const field = definition.value.fields.find((item) => item.key === key);
   let result = String(value ?? '—');
   if (value !== undefined) {
-    if (field?.type === 'money') {
+    if (
+      props.kind === 'benefits' &&
+      key === 'description' &&
+      value === 'Correção de saldo' &&
+      record.data.nature === 'adjustment'
+    ) {
+      result = t('Correção de saldo');
+    } else if (field?.type === 'money') {
       result = money(value);
     } else if (field?.source) {
       result = finance.label(value);
@@ -150,9 +159,19 @@ function exportCsv() {
       <h1>{{ definition.title }}</h1>
       <p>{{ definition.description }}</p>
     </div>
-    <button v-if="!definition.readOnly" class="button primary" @click="openForm()">
-      <Plus :size="18" />{{ t('Adicionar') }} {{ definition.singular }}
-    </button>
+    <div class="page-actions">
+      <button
+        v-if="kind === 'benefits'"
+        class="button secondary"
+        :disabled="!finance.dashboard || finance.loading"
+        @click="correctionOpen = true"
+      >
+        {{ t('Corrigir saldo') }}
+      </button>
+      <button v-if="!definition.readOnly" class="button primary" @click="openForm()">
+        <Plus :size="18" />{{ t('Adicionar') }} {{ definition.singular }}
+      </button>
+    </div>
   </div>
   <div v-if="kind === 'accounts' && finance.dashboard?.balances.length" class="stats-grid">
     <StatCard
@@ -167,7 +186,7 @@ function exportCsv() {
     <StatCard
       :label="t('Saldo anterior')"
       :value="finance.dashboard.benefits.previousBalance"
-      :detail="t('Créditos menos compras dos meses anteriores')"
+      :detail="t('Saldo dos meses anteriores, incluindo correções')"
     />
     <StatCard
       :label="t('Crédito do mês')"
@@ -176,7 +195,7 @@ function exportCsv() {
     /><StatCard :label="t('Consumo do mês')" :value="finance.dashboard.benefits.spent" /><StatCard
       :label="t('Saldo acumulado')"
       :value="finance.dashboard.benefits.balance"
-      :detail="t('Saldo anterior + créditos − consumo do mês')"
+      :detail="t('Saldo anterior + créditos − consumo + correções')"
     />
   </div>
   <div v-if="kind === 'benefits' && finance.dashboard" class="benefit-reconciliation">
@@ -187,8 +206,11 @@ function exportCsv() {
     <span
       >{{ money(finance.dashboard.benefits.previousBalance) }} +
       {{ money(finance.dashboard.benefits.credits) }} −
-      {{ money(finance.dashboard.benefits.spent) }} =
-      <strong>{{ money(finance.dashboard.benefits.balance) }}</strong></span
+      {{ money(finance.dashboard.benefits.spent) }}
+      <template v-if="finance.dashboard.benefits.adjustments">
+        + ({{ money(finance.dashboard.benefits.adjustments) }} {{ t('em correções') }})</template
+      >
+      = <strong>{{ money(finance.dashboard.benefits.balance) }}</strong></span
     >
   </div>
   <div v-if="kind === 'settlements' && finance.dashboard" class="stats-grid three">
@@ -369,6 +391,13 @@ function exportCsv() {
     :initial="initial"
     @close="formOpen = false"
     @saved="formOpen = false"
+  />
+  <BenefitCorrectionForm
+    v-if="correctionOpen && finance.dashboard"
+    :month="finance.month"
+    :balance="finance.dashboard.benefits.balance"
+    @close="correctionOpen = false"
+    @saved="correctionOpen = false"
   />
   <div v-if="deleting" class="modal-backdrop" @keydown.esc="deleting = undefined">
     <section

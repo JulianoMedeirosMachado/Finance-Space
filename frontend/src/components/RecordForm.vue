@@ -108,6 +108,13 @@ async function save() {
       </div>
       <div class="dialog-body">
         <div v-if="error" class="notice error" role="alert">{{ error }}</div>
+        <p v-if="kind === 'benefits' && record?.data.nature === 'adjustment'" class="field-hint">
+          {{
+            t(
+              'Esta correção guarda a diferença aplicada, não o saldo final. Para informar um novo saldo real, use Corrigir saldo.',
+            )
+          }}
+        </p>
         <p v-if="kind === 'recurring' || kind === 'income'" class="field-hint">
           {{
             t(
@@ -166,7 +173,11 @@ async function save() {
               v-model="form[field.key]"
               :type="field.type === 'money' ? 'number' : field.type || 'text'"
               :step="field.type === 'money' ? '0.01' : field.type === 'number' ? '1' : undefined"
-              :min="field.min"
+              :min="
+                kind === 'benefits' && form.nature === 'adjustment' && field.key === 'amount'
+                  ? undefined
+                  : field.min
+              "
               :max="field.max"
               :maxlength="field.type === 'text' ? 250 : undefined"
               :required="field.required"

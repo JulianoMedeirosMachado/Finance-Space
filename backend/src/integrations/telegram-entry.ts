@@ -5,7 +5,7 @@ import { responsiblePersonId } from './telegram-people';
 
 export interface TelegramDraft {
   id: string;
-  kind: 'transactions' | 'installments' | 'recurring' | 'income';
+  kind: 'transactions' | 'installments' | 'recurring' | 'income' | 'benefits';
   data: FinanceData;
   split_entries?: TelegramSplitEntry[] | null;
 }
@@ -24,7 +24,35 @@ export function buildTelegramEntry(
   const paymentCount = Number(Boolean(proposal.accountId)) + Number(Boolean(proposal.cardId));
   const count = proposal.installments || 1;
   let result: { kind: TelegramDraft['kind']; data: FinanceData };
-  if (
+  if (proposal.paymentType === 'meal_allowance') {
+    if (
+      paymentCount ||
+      proposal.categoryId ||
+      proposal.personId ||
+      proposal.personMentioned ||
+      proposal.participants.length ||
+      count !== 1 ||
+      proposal.recurrence !== 'none' ||
+      proposal.day ||
+      proposal.endMonth
+    ) {
+      throw new BadRequestException(
+        'Vale-alimentação aceita compras ou créditos avulsos, sem conta, cartão de crédito, categoria, responsável, divisão, recorrência ou parcelas.',
+      );
+    } else {
+      result = {
+        kind: 'benefits',
+        data: parseRecordData('benefits', {
+          description: proposal.description,
+          nature: proposal.nature,
+          amount: proposal.amount,
+          date: proposal.date,
+          month: proposal.month,
+          note: '',
+        }),
+      };
+    }
+  } else if (
     proposal.nature === 'income' &&
     (proposal.cardId ||
       !proposal.accountId ||

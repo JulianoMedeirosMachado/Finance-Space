@@ -77,6 +77,7 @@ try {
     benefits: {
       credits: 10000,
       spent: 2500,
+      adjustments: 0,
       previousBalance: 2000,
       monthBalance: 7500,
       balance: 9500,
@@ -220,6 +221,9 @@ try {
   const { default: Month } = await server.ssrLoadModule('/src/views/MonthView.vue');
   const { default: Reports } = await server.ssrLoadModule('/src/views/ReportsView.vue');
   const { default: RecordForm } = await server.ssrLoadModule('/src/components/RecordForm.vue');
+  const { default: BenefitCorrectionForm } = await server.ssrLoadModule(
+    '/src/components/BenefitCorrectionForm.vue',
+  );
   const { default: IntegrationSettings } = await server.ssrLoadModule(
     '/src/components/IntegrationSettings.vue',
   );
@@ -232,10 +236,116 @@ try {
   for (const match of integrationSource.matchAll(/\bt\(\s*'([^']+)'/g)) {
     assert.doesNotMatch(t(match[1]), /[çãõáéíóúêô]/i, `Untranslated integration text: ${match[1]}`);
   }
-  for (const file of ['../src/views/InsightsView.vue', '../src/components/InsightsPanel.vue']) {
+  for (const file of [
+    '../src/views/InsightsView.vue',
+    '../src/components/InsightsPanel.vue',
+    '../src/components/BenefitCorrectionForm.vue',
+  ]) {
     const source = await readFile(new URL(file, import.meta.url), 'utf8');
     for (const match of source.matchAll(/\bt\(\s*'([^']+)'/g)) {
       assert.doesNotMatch(t(match[1]), /[çãõáéíóúêô]/i, `Untranslated insights text: ${match[1]}`);
+    }
+  }
+  {
+    let correction;
+    const emitted = [];
+    await render({
+      setup() {
+        correction = BenefitCorrectionForm.setup(
+          { month: '2026-10', balance: 9500 },
+          { expose() {}, emit: (event) => emitted.push(event) },
+        );
+        return () => null;
+      },
+    });
+    const previousFetch = globalThis.fetch;
+    const previousRecords = finance.records;
+    const previousDashboard = finance.dashboard;
+    const previousMonth = finance.month;
+    const requests = [];
+    let conflict = true;
+    let pause = false;
+    let release;
+    try {
+      globalThis.fetch = async (url, options) => {
+        requests.push({ url: String(url), method: options.method, body: options.body });
+        if (options.method === 'POST') {
+          assert.equal(String(url), '/api/finance/benefits/correction');
+          if (pause) {
+            await new Promise((resolve) => {
+              release = resolve;
+            });
+          }
+          return conflict
+            ? new Response(JSON.stringify({ message: 'Balance changed' }), { status: 409 })
+            : new Response(JSON.stringify({ balance: 10000, adjustment: 2000 }));
+        }
+        assert.ok(String(url).startsWith('/api/finance/'));
+        return new Response(
+          JSON.stringify(
+            String(url).includes('/records')
+              ? previousRecords
+              : {
+                  ...previousDashboard,
+                  benefits: { ...previousDashboard.benefits, balance: 8000 },
+                },
+          ),
+        );
+      };
+      for (const value of ['', '-1', '1e2', '1.234', '1000000001']) {
+        correction.actualBalance.value = value;
+        assert.equal(correction.target.value, null);
+        await correction.save();
+      }
+      assert.equal(requests.length, 0);
+      correction.actualBalance.value = '95,00';
+      assert.equal(correction.difference.value, 0);
+      await correction.save();
+      assert.equal(requests.length, 0);
+      correction.actualBalance.value = '100,00';
+      correction.note.value = '<img src=x onerror=alert(1)>';
+      const correctionHtml = await render(
+        { ...BenefitCorrectionForm, setup: () => correction },
+        { month: '2026-10', balance: 9500 },
+      );
+      assert.match(correctionHtml, /Confirm correction/);
+      assert.match(correctionHtml, /&lt;img/);
+      assert.doesNotMatch(correctionHtml, /<img/);
+      assert.equal(correction.difference.value, 500);
+      assert.equal(requests.length, 0);
+      finance.month = '2026-11';
+      await correction.save();
+      assert.equal(correction.error.value, 'Balance changed');
+      assert.equal(correction.actualBalance.value, '100,00');
+      assert.equal(emitted.length, 0);
+      await correction.reloadBalance();
+      assert.equal(requests.at(-1).url, '/api/finance/dashboard?month=2026-10');
+      assert.equal(correction.expectedBalance.value, 8000);
+      assert.equal(correction.difference.value, 2000);
+      conflict = false;
+      pause = true;
+      const saving = correction.save();
+      assert.equal(correction.busy.value, true);
+      const before = requests.length;
+      await correction.save();
+      assert.equal(requests.length, before);
+      release();
+      await saving;
+      assert.deepEqual(emitted, ['saved']);
+      const writes = requests.filter((request) => request.method === 'POST');
+      assert.equal(writes.length, 2);
+      assert.deepEqual(JSON.parse(writes.at(-1).body), {
+        month: '2026-10',
+        balance: 10000,
+        expectedBalance: 8000,
+        note: '<img src=x onerror=alert(1)>',
+      });
+      assert.ok(requests.every((request) => request.url.startsWith('/api/finance/')));
+    } finally {
+      globalThis.fetch = previousFetch;
+      finance.records = previousRecords;
+      finance.dashboard = previousDashboard;
+      finance.month = previousMonth;
     }
   }
   {

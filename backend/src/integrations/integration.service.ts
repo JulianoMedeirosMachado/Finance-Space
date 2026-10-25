@@ -253,6 +253,9 @@ export class IntegrationService {
                   ? 'Send one complete entry: item, amount, account/card, and optionally date, reporting month, category and a registered responsible person for expenses. Subscription: "Streaming 30 monthly on ML, day 10" (monthly planned schedule). Income: "Received 20 for a sale into Checking" (account required, no card). Monthly income: "Salary 3000 monthly into Checking, day 5" (planned). Installments: total and count, or explicitly each installment amount. Shared purchase: Gas 150, me, Marta and Cacau on ML in 3 installments; Marta pays 50%. Without percentages the split is equal; unspecified participants share the remainder. Check every share in the preview before confirming. /disconnect unlinks this account. Text only; no transfers or reimbursements.'
                   : 'Envie um lançamento completo: item, valor, conta/cartão e, se quiser, data, competência, categoria e responsável cadastrado para despesas. Assinatura: "Streaming 30 mensal no ML, dia 10" (previsão mensal). Receita: "Receita de 20 pela venda na conta Corrente" (precisa de conta, sem cartão). Receita mensal: "Salário 3000 todo mês na conta Corrente, dia 5" (previsão). Parcelamento: total e quantidade ou o valor explícito de cada parcela. Compra dividida: gas 150, eu, Marta e Cacau no ML em 3x; Marta paga 50%. Sem percentuais a divisão é igual; os demais dividem o restante. Confira todas as partes na prévia antes de confirmar. /disconnect desvincula esta conta. Somente texto; sem transferências ou reembolsos.',
               };
+              reply.text += english
+                ? '\nMeal allowance: "Groceries 50 using meal allowance" or "Meal allowance credit of 672". No bank account or credit card is needed. Benefit entries do not support installments, splits or recurrence. Review the benefit type before confirming.'
+                : '\nVale-alimentação: "Mercado 50 no vale alimentação" ou "Crédito de 672 no VA". Não precisa de conta bancária ou cartão de crédito. Não aceita parcelas, divisões ou recorrências. Confira o tipo do benefício antes de confirmar.';
             } else {
               reply = await this.propose(settings, update.update_id, text, english);
             }
@@ -429,25 +432,33 @@ export class IntegrationService {
           ? `\n${english ? 'Monthly amount' : 'Valor mensal'}: ${amount}\n${english ? 'First reporting month' : 'Primeira competência'}: ${data.startMonth}\n${english ? 'Day' : 'Dia'}: ${data.day}\n${english ? 'Last reporting month' : 'Última competência'}: ${data.endMonth || (english ? 'No end date' : 'Sem término')}\n${english ? 'Planned monthly schedule only; no payment or receipt is marked as completed.' : 'Somente previsão mensal; nenhum pagamento ou recebimento é marcado como realizado.'}`
           : `\n${amount}\n${english ? 'Date' : 'Data'}: ${data.date}\n${english ? 'Reporting month' : 'Competência'}: ${data.month}`;
     const type =
-      draft.kind === 'recurring'
+      draft.kind === 'benefits'
         ? english
-          ? 'Subscription / recurring expense'
-          : 'Assinatura / despesa recorrente'
-        : draft.kind === 'income'
+          ? `Meal allowance — ${data.nature === 'income' ? 'credit' : 'purchase'}`
+          : `Vale-alimentação — ${data.nature === 'income' ? 'crédito' : 'compra'}`
+        : draft.kind === 'recurring'
           ? english
-            ? 'Recurring income (planned)'
-            : 'Receita recorrente (prevista)'
-          : data.nature === 'income'
+            ? 'Subscription / recurring expense'
+            : 'Assinatura / despesa recorrente'
+          : draft.kind === 'income'
             ? english
-              ? 'Income received'
-              : 'Receita recebida'
-            : english
-              ? 'Expense'
-              : 'Despesa';
+              ? 'Recurring income (planned)'
+              : 'Receita recorrente (prevista)'
+            : data.nature === 'income'
+              ? english
+                ? 'Income received'
+                : 'Receita recebida'
+              : english
+                ? 'Expense'
+                : 'Despesa';
     const split = telegramSplitPreview(draft, references, english);
+    const details =
+      draft.kind === 'benefits'
+        ? `\n${english ? 'Recorded only in meal allowance; separate from bank balances, salary and credit-card bills.' : 'Registrado somente no vale-alimentação; separado dos saldos bancários, salário e faturas.'}`
+        : `\n${data.cardId ? (english ? 'Suggested card' : 'Cartão sugerido') : english ? 'Suggested account' : 'Conta sugerida'}: ${name(data.cardId || data.accountId)}\n${english ? 'Suggested category' : 'Categoria sugerida'}: ${name(data.categoryId)}${split || `\n${english ? 'Responsible person' : 'Responsável'}: ${data.personId ? name(data.personId) : english ? 'You' : 'Você'}`}`;
     return {
       chatId: settings.telegram_user_id!,
-      text: `${english ? 'Review the AI proposal' : 'Confira a proposta da IA'}\n${english ? 'Type' : 'Tipo'}: ${type}\n${data.description}${schedule}\n${data.cardId ? (english ? 'Suggested card' : 'Cartão sugerido') : english ? 'Suggested account' : 'Conta sugerida'}: ${name(data.cardId || data.accountId)}\n${english ? 'Suggested category' : 'Categoria sugerida'}: ${name(data.categoryId)}${split || `\n${english ? 'Responsible person' : 'Responsável'}: ${data.personId ? name(data.personId) : english ? 'You' : 'Você'}`}\n\n${english ? 'Names and abbreviations may have been interpreted. Check the account/card and responsible person before confirming. No reimbursement is marked as received. Expires in 24 hours. To correct, cancel and resend a complete message.' : 'Nomes e siglas podem ter sido interpretados. Confira a conta/cartão e o responsável antes de confirmar. Nenhum reembolso é marcado como recebido. Expira em 24 horas. Para corrigir, cancele e reenvie uma mensagem completa.'}`,
+      text: `${english ? 'Review the AI proposal' : 'Confira a proposta da IA'}\n${english ? 'Type' : 'Tipo'}: ${type}\n${data.description}${schedule}${details}\n\n${english ? 'Names and abbreviations may have been interpreted. Check the type, amount, date and any suggested account/card or responsible person before confirming. No reimbursement is marked as received. Expires in 24 hours. To correct, cancel and resend a complete message.' : 'Nomes e siglas podem ter sido interpretados. Confira o tipo, valor, data e eventual conta/cartão ou responsável antes de confirmar. Nenhum reembolso é marcado como recebido. Expira em 24 horas. Para corrigir, cancele e reenvie uma mensagem completa.'}`,
       buttons: [
         [
           { text: english ? 'Confirm' : 'Confirmar', callback_data: `confirm:${draft.id}` },
@@ -522,21 +533,25 @@ export class IntegrationService {
               ? english
                 ? 'Shared purchase registered! Each participant has one entry; the purchase total was not duplicated. Review the entries in Finance Space.'
                 : 'Compra compartilhada registrada! Cada participante tem uma parte; o total da compra não foi duplicado. Confira os lançamentos no Finance Space.'
-              : draft.kind === 'installments'
+              : draft.kind === 'benefits'
                 ? english
-                  ? 'Installment plan registered! Fine-tune it under Installments in Finance Space.'
-                  : 'Parcelamento registrado! Faça os ajustes finos em Parcelamentos no Finance Space.'
-                : draft.kind === 'recurring' || draft.kind === 'income'
+                  ? 'Meal allowance entry registered! You can edit it under Meal allowance in Finance Space.'
+                  : 'Movimentação de vale-alimentação registrada! Você pode editá-la em Vale-alimentação no Finance Space.'
+                : draft.kind === 'installments'
                   ? english
-                    ? 'Monthly schedule registered! Manage and post each occurrence in Finance Space; nothing was marked as paid or received.'
-                    : 'Recorrência mensal registrada! Gerencie e realize cada ocorrência no Finance Space; nada foi marcado como pago ou recebido.'
-                  : data.nature === 'income'
+                    ? 'Installment plan registered! Fine-tune it under Installments in Finance Space.'
+                    : 'Parcelamento registrado! Faça os ajustes finos em Parcelamentos no Finance Space.'
+                  : draft.kind === 'recurring' || draft.kind === 'income'
                     ? english
-                      ? 'Income registered! You can edit it in Finance Space.'
-                      : 'Receita registrada! Você pode editá-la no Finance Space.'
-                    : english
-                      ? 'Expense registered! You can edit it in Finance Space.'
-                      : 'Despesa registrada! Você pode editá-la no Finance Space.';
+                      ? 'Monthly schedule registered! Manage and post each occurrence in Finance Space; nothing was marked as paid or received.'
+                      : 'Recorrência mensal registrada! Gerencie e realize cada ocorrência no Finance Space; nada foi marcado como pago ou recebido.'
+                    : data.nature === 'income'
+                      ? english
+                        ? 'Income registered! You can edit it in Finance Space.'
+                        : 'Receita registrada! Você pode editá-la no Finance Space.'
+                      : english
+                        ? 'Expense registered! You can edit it in Finance Space.'
+                        : 'Despesa registrada! Você pode editá-la no Finance Space.';
           } else {
             await database.query(
               "UPDATE telegram_drafts SET state='cancelled' WHERE id=$1 AND user_id=$2",

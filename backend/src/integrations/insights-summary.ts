@@ -99,6 +99,9 @@ export function buildInsightSummary(
         .filter((record) => !record.data.categoryId)
         .reduce((value, record) => value + Number(record.data.amount), 0),
       mealAllowance: {
+        adjustments: benefit
+          .filter((record) => record.data.nature === 'adjustment')
+          .reduce((value, record) => value + Number(record.data.amount), 0),
         credits: benefit
           .filter((record) => record.data.nature === 'income')
           .reduce((value, record) => value + Number(record.data.amount), 0),
