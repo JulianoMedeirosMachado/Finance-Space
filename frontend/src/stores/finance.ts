@@ -53,6 +53,16 @@ export const useFinanceStore = defineStore('finance', () => {
     message.value = 'Registro excluído.';
     await refresh();
   }
+  async function correctBenefitBalance(input: {
+    month: string;
+    balance: number;
+    expectedBalance: number;
+    note: string;
+  }) {
+    await api('/finance/benefits/correction', { method: 'POST', body: JSON.stringify(input) });
+    message.value = 'Saldo do vale corrigido.';
+    await refresh();
+  }
   async function realize(sourceId: string, accountId?: string) {
     await api('/finance/realize', {
       method: 'POST',
@@ -82,6 +92,7 @@ export const useFinanceStore = defineStore('finance', () => {
     refresh,
     save,
     remove,
+    correctBenefitBalance,
     realize,
     label,
     reset,

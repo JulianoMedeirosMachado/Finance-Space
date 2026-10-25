@@ -8,6 +8,10 @@ export function requestLanguage(request: Request): Language {
 }
 
 const english: Record<string, string> = {
+  'O saldo do vale mudou. Atualize os dados e confira a correção novamente.':
+    'The meal allowance balance changed. Refresh the data and review the correction again.',
+  'Créditos e compras precisam de valor positivo ou zero.':
+    'Credits and purchases must have a positive or zero amount.',
   'Informe um responsável cadastrado sem ambiguidade e reenvie a mensagem completa.':
     'Specify an unambiguous registered responsible person and resend the complete message.',
   'Confira os participantes e percentuais da divisão. Informe todos sem ambiguidade e reenvie a mensagem completa.':

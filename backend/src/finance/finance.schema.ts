@@ -19,6 +19,14 @@ export const resourceKinds = [
 export type ResourceKind = (typeof resourceKinds)[number];
 export const kindSchema = z.enum(resourceKinds);
 export const monthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Use AAAA-MM.');
+export const benefitCorrectionSchema = z
+  .object({
+    month: monthSchema,
+    balance: z.number().int().min(0).max(100_000_000_000),
+    expectedBalance: z.number().int().min(-Number.MAX_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER),
+    note: z.string().trim().max(2000).default(''),
+  })
+  .strict();
 const dateSchema = z.iso.date();
 const text = z.string().trim().min(1).max(250);
 const reference = z.string().uuid().optional();
@@ -138,11 +146,20 @@ export const resourceSchemas = {
       description: text,
       month: monthSchema,
       date: dateSchema,
-      nature: z.enum(['income', 'expense']),
-      amount: money.nonnegative(),
+      nature: z.enum(['income', 'expense', 'adjustment']),
+      amount: money,
       note: z.string().max(2000).default(''),
     })
-    .strict(),
+    .strict()
+    .superRefine((data, context) => {
+      if (data.nature !== 'adjustment' && data.amount < 0) {
+        context.addIssue({
+          code: 'custom',
+          path: ['amount'],
+          message: 'Créditos e compras precisam de valor positivo ou zero.',
+        });
+      }
+    }),
   goals: z
     .object({
       name: text,

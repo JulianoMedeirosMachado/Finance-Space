@@ -81,6 +81,13 @@ export class FinanceController {
       input.accountId,
     );
   }
+  @Post('benefits/correction')
+  async correctBenefits(@Req() request: Request, @Body() body: unknown) {
+    return this.finance.correctBenefitBalance(
+      (await this.auth.findUser(request.cookies.finance_session)).id,
+      body,
+    );
+  }
   @Get('export')
   async export(@Req() request: Request, @Res() response: Response) {
     const records = await this.finance.list(

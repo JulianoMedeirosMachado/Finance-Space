@@ -135,6 +135,12 @@ test('insight summary contains only aggregates and pseudonyms, separates forecas
       nature: 'expense',
       amount: 2000,
     }),
+    record('benefit-correction-private', 'benefits', {
+      date: '2026-10-17',
+      month: '2026-10',
+      nature: 'adjustment',
+      amount: -1234,
+    }),
     record('goal-private', 'goals', { name: 'PRIVATE_GOAL', targetAmount: 100000 }),
     record('contribution-private', 'goalContributions', {
       goalId: 'goal-private',
@@ -154,6 +160,8 @@ test('insight summary contains only aggregates and pseudonyms, separates forecas
   assert.equal(totals.income, 50000);
   assert.equal(totals.thirdPartyExpenseParticipation, 10000);
   assert.equal(totals.mealAllowance.purchases, 2000);
+  assert.equal(totals.mealAllowance.adjustments, -1234);
+  assert.equal(totals.mealAllowance.credits, 0);
   assert.equal(snapshot.payload.currentPosition.recordedCashBalance, 140000);
   assert.equal(snapshot.payload.currentPosition.goals[0].savedAmount, 10000);
   assert.equal(snapshot.payload.coverage.historicalArchiveExcluded, true);

@@ -97,6 +97,7 @@ test(
         401,
       );
       assert.equal((await request('/finance/export')).status, 401);
+      assert.equal((await request('/finance/benefits/correction', 'POST', {})).status, 401);
       assert.equal((await request('/finance/dashboard?month=2026-10')).status, 401);
       assert.equal(
         (await request('/auth/preferences', 'PATCH', { language: 'en-US' })).status,
@@ -130,6 +131,38 @@ test(
       });
       assert.equal(signup.status, 201);
       const cookie = signup.headers.get('set-cookie')!.split(';')[0];
+      const correction = { month: '2026-10', balance: 10000, expectedBalance: 0 };
+      assert.equal(
+        (
+          await request(
+            '/finance/benefits/correction',
+            'POST',
+            correction,
+            cookie,
+            'https://evil.example.test',
+          )
+        ).status,
+        403,
+      );
+      assert.equal(
+        (
+          await request(
+            '/finance/benefits/correction',
+            'POST',
+            { ...correction, balance: -1 },
+            cookie,
+          )
+        ).status,
+        400,
+      );
+      assert.equal(
+        (await request('/finance/benefits/correction', 'POST', correction, cookie)).status,
+        201,
+      );
+      assert.equal(
+        (await request('/finance/benefits/correction', 'POST', correction, cookie)).status,
+        409,
+      );
       const aiKey = randomBytes(24).toString('hex');
       const aiConfig = { provider: 'deepseek', model: 'test-model', apiKey: aiKey, consent: true };
       assert.equal(

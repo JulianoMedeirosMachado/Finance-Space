@@ -10,6 +10,7 @@ import { migrateInsights } from '../integrations/insights-migration';
 import { migrateTelegramEntryKinds } from '../integrations/telegram-entry-migration';
 import { migrateTelegramQueueSecurity } from '../integrations/telegram-security-migration';
 import { migrateTelegramSplits } from '../integrations/telegram-split-migration';
+import { migrateTelegramBenefits } from '../integrations/telegram-benefit-migration';
 
 export interface QueryExecutor {
   query<T extends Record<string, unknown> = Record<string, unknown>>(
@@ -181,6 +182,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy, QueryExec
       if (splits.length === 0) {
         await migrateTelegramSplits(database);
         await database.query('INSERT INTO schema_migrations(version) VALUES(8)');
+      }
+      const benefits = await database.query(
+        'SELECT version FROM schema_migrations WHERE version=9',
+      );
+      if (benefits.length === 0) {
+        await migrateTelegramBenefits(database);
+        await database.query('INSERT INTO schema_migrations(version) VALUES(9)');
       }
     });
   }

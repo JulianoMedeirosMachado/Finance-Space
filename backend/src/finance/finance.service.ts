@@ -7,8 +7,15 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DatabaseService, QueryExecutor } from '../database/database.service';
-import { FinanceData, FinanceRecord, parseRecordData, ResourceKind } from './finance.schema';
+import {
+  benefitCorrectionSchema,
+  FinanceData,
+  FinanceRecord,
+  parseRecordData,
+  ResourceKind,
+} from './finance.schema';
 import { monthlyEntries, summarize, addMonths } from './calculations';
+import { summarizeBenefits } from './benefit-balance';
 
 @Injectable()
 export class FinanceService {
@@ -135,6 +142,49 @@ export class FinanceService {
       };
     });
     return { ...current, trend };
+  }
+
+  async correctBenefitBalance(userId: string, input: unknown) {
+    const correction = benefitCorrectionSchema.parse(input);
+    return this.database.forUser(userId, async (database) => {
+      await database.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [userId]);
+      const records = await database.query<FinanceRecord & Record<string, unknown>>(
+        "SELECT id,kind,data,version FROM records WHERE user_id=$1 AND kind='benefits'",
+        [userId],
+      );
+      const current = summarizeBenefits(records, correction.month).balance;
+      if (current !== correction.expectedBalance) {
+        throw new ConflictException(
+          'O saldo do vale mudou. Atualize os dados e confira a correção novamente.',
+        );
+      }
+      const adjustment = correction.balance - current;
+      if (adjustment !== 0) {
+        const today = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'America/Sao_Paulo',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date());
+        const lastDay = new Date(`${addMonths(correction.month, 1)}-01T12:00:00Z`);
+        lastDay.setUTCDate(0);
+        const data = parseRecordData('benefits', {
+          description: 'Correção de saldo',
+          nature: 'adjustment',
+          amount: adjustment,
+          month: correction.month,
+          date: today.slice(0, 7) === correction.month ? today : lastDay.toISOString().slice(0, 10),
+          note: correction.note,
+        });
+        await database.query('INSERT INTO records(id,user_id,kind,data) VALUES($1,$2,$3,$4)', [
+          randomUUID(),
+          userId,
+          'benefits',
+          JSON.stringify(data),
+        ]);
+      }
+      return { balance: correction.balance, adjustment };
+    });
   }
 
   async realize(userId: string, month: string, sourceId: string, accountId?: string) {

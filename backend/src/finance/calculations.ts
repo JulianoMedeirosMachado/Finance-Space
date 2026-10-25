@@ -1,4 +1,5 @@
 import { FinanceData, FinanceRecord } from './finance.schema';
+import { summarizeBenefits } from './benefit-balance';
 import { summarizeGoals } from './goals';
 
 export function monthIndex(month: string) {
@@ -183,26 +184,7 @@ export function summarize(records: FinanceRecord[], month: string) {
         dueDay: card.data.dueDay,
       };
     });
-  const benefitEntries = records.filter(
-    (record) => record.kind === 'benefits' && String(record.data.month) <= month,
-  );
-  const benefitTotal = (nature: string, currentOnly: boolean) =>
-    benefitEntries
-      .filter(
-        (record) => record.data.nature === nature && (!currentOnly || record.data.month === month),
-      )
-      .reduce((sum, record) => sum + Number(record.data.amount), 0);
-  const benefits = {
-    credits: benefitTotal('income', true),
-    spent: benefitTotal('expense', true),
-    previousBalance:
-      benefitTotal('income', false) -
-      benefitTotal('expense', false) -
-      benefitTotal('income', true) +
-      benefitTotal('expense', true),
-    monthBalance: benefitTotal('income', true) - benefitTotal('expense', true),
-    balance: benefitTotal('income', false) - benefitTotal('expense', false),
-  };
+  const benefits = summarizeBenefits(records, month);
   const categories = records
     .filter((record) => record.kind === 'categories')
     .map((category) => ({
