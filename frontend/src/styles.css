@@ -890,7 +890,7 @@ tbody tr:hover {
   gap: 13px;
   color: var(--muted);
 }
-.empty-state svg {
+.empty-state > svg {
   color: var(--green);
   opacity: 0.7;
 }
