@@ -38,12 +38,19 @@ test('responsible-person matching shares only mentioned references and rejects a
   ]);
   assert.deepEqual(mentionedPeople(records, 'banana 3 reais'), []);
   assert.equal(responsiblePersonId(proposal(), records, 'Shoes 300'), self.id);
-  assert.equal(responsiblePersonId(proposal(firstParticipant.id, true), records, 'ParticipantA shoes'), firstParticipant.id);
+  assert.equal(
+    responsiblePersonId(proposal(firstParticipant.id, true), records, 'ParticipantA shoes'),
+    firstParticipant.id,
+  );
   assert.equal(responsiblePersonId(proposal(ana.id, true), records, 'Ana Maria shoes'), ana.id);
   assert.throws(() => responsiblePersonId(proposal(ana.id, true), records, 'Ana shoes'));
   assert.throws(() => responsiblePersonId(proposal(null, true), records, 'Unknown shoes'));
-  assert.throws(() => responsiblePersonId(proposal(randomUUID(), true), records, 'ParticipantA shoes'));
-  assert.throws(() => responsiblePersonId(proposal(unrelated.id, true), records, 'ParticipantA shoes'));
+  assert.throws(() =>
+    responsiblePersonId(proposal(randomUUID(), true), records, 'ParticipantA shoes'),
+  );
+  assert.throws(() =>
+    responsiblePersonId(proposal(unrelated.id, true), records, 'ParticipantA shoes'),
+  );
 });
 
 test('third-party expenses and installments accrue monthly charges without recording reimbursement', () => {

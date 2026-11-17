@@ -4,6 +4,24 @@ import { readFileSync, existsSync } from 'node:fs';
 const git = (args, options = {}) =>
   execFileSync('git', args, { maxBuffer: 32 * 1024 * 1024, ...options });
 const text = (args, options = {}) => git(args, options).toString('utf8');
+const normalizePrivateText = (value) => value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+const privateTermsOption = process.argv.indexOf('--private-terms-file');
+let privateTerms = [];
+if (privateTermsOption >= 0) {
+  const filename = process.argv[privateTermsOption + 1];
+  if (!filename || filename.startsWith('--')) {
+    throw new Error('Provide a JSON file after --private-terms-file.');
+  }
+  const terms = JSON.parse(readFileSync(filename, 'utf8'));
+  if (
+    !Array.isArray(terms) ||
+    !terms.length ||
+    terms.some((term) => typeof term !== 'string' || !term.trim())
+  ) {
+    throw new Error('Private terms must be a nonempty JSON array of nonempty strings.');
+  }
+  privateTerms = [...new Set(terms.map((term) => normalizePrivateText(term.trim())))];
+}
 const patterns = [
   ['private-key', /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/g],
   ['github-token', /\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})\b/g],
@@ -34,6 +52,17 @@ function scan(path, buffer) {
     findings.push({ path, rule: 'private-artifact' });
   }
   const content = buffer.toString('utf8');
+  if (privateTerms.length) {
+    if (privateTerms.some((term) => normalizePrivateText(path).includes(term))) {
+      findings.push({ path, rule: 'private-term-in-path' });
+    }
+    for (const [index, line] of content.split('\n').entries()) {
+      const normalized = normalizePrivateText(line);
+      if (privateTerms.some((term) => normalized.includes(term))) {
+        findings.push({ path, rule: 'private-term', line: index + 1 });
+      }
+    }
+  }
   for (const [rule, pattern] of patterns) {
     for (const match of content.matchAll(pattern)) {
       const placeholder =
@@ -84,6 +113,7 @@ const types = new Map(
     }),
 );
 const historyFindings = [];
+const commitMessageFindings = [];
 let blobsChecked = 0;
 let localPathReferences = 0;
 for (const object of objects) {
@@ -98,6 +128,15 @@ for (const object of objects) {
     );
     if (/[A-Z]:[\\/](?:Users|Documents and Settings)[\\/]/i.test(content.toString('utf8'))) {
       localPathReferences++;
+    }
+  } else if (types.get(object.id) === 'commit' && privateTerms.length) {
+    const content = git(['cat-file', 'commit', object.id]).toString('utf8');
+    const message = content.slice(content.indexOf('\n\n') + 2);
+    if (privateTerms.some((term) => normalizePrivateText(message).includes(term))) {
+      commitMessageFindings.push({
+        object: object.id.slice(0, 12),
+        rule: 'private-term-in-message',
+      });
     }
   }
 }
@@ -134,9 +173,11 @@ console.log(
         commits: Number(text(['rev-list', '--count', '--all']).trim()),
         blobsChecked,
         findings: historyFindings,
+        commitMessageFindings,
         localPathReferences,
       },
       gitMetadata: { nonNoreplyAuthorEmailCount: authorEmails.size },
+      privateTerms: { enabled: privateTerms.length > 0, count: privateTerms.length },
       ignoreChecks,
       limitation:
         'Pattern-based review: a clean result is not a guarantee that arbitrary sensitive information is absent.',
@@ -149,6 +190,7 @@ if (
   blobsChecked === 0 ||
   workingFindings.length ||
   historyFindings.length ||
+  commitMessageFindings.length ||
   ignoreChecks.some((check) => !check.ignored)
 ) {
   process.exitCode = 1;

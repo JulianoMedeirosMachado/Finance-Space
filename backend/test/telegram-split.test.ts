@@ -109,8 +109,14 @@ test('explicit and partial percentages preserve native third-party accounting an
   const summary = summarize(records, '2026-10');
   assert.equal(summary.expenses, 5000);
   assert.equal(summary.cards.length, 0);
-  assert.equal(summary.thirdParty.find((person) => person.id === firstParticipant.id)!.charged, 1500);
-  assert.equal(summary.thirdParty.find((person) => person.id === secondParticipant.id)!.charged, 1000);
+  assert.equal(
+    summary.thirdParty.find((person) => person.id === firstParticipant.id)!.charged,
+    1500,
+  );
+  assert.equal(
+    summary.thirdParty.find((person) => person.id === secondParticipant.id)!.charged,
+    1000,
+  );
   assert.equal(summary.freeBalance, -2500);
   assert.ok(summary.thirdParty.every((person) => person.settled === 0));
   const partial = buildTelegramProposal(proposal([null, 50, null]), references, text);

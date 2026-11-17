@@ -206,6 +206,8 @@ SMTP requires `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` and, if needed, `SMTP_USER`/
 
 Database files, environment configuration, exports and backups are ignored by Git. Never force-add these files or publish a project archive containing runtime data. `npm.cmd run audit:security` checks current source files and reachable Git history for common credential patterns and private artifacts; it is a heuristic check, not a guarantee that all sensitive content is absent.
 
+To check personal references as well, keep a private JSON array of terms in an ignored local file and run `npm.cmd run audit:security -- --private-terms-file backups/private-terms.json`. Matching ignores case and accents and checks file content, historical blobs, paths and commit messages. Findings report locations without printing the private terms. Keep examples in interface text, AI prompts, documentation and tests generic.
+
 ## Backup and recovery
 
 Per-account JSON and CSV downloads are portable exports, not full server backups. Full backups include account credentials (hashed), financial records, goals/contributions, completed AI insight reports and legacy import audit metadata, encrypted with AES-256-GCM using a password-derived key. Sessions, password-reset tokens and integration credentials/consents are deliberately excluded.
