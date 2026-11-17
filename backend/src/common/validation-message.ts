@@ -38,6 +38,7 @@ const englishFields: Record<string, string> = {
   active: 'Active',
   isSelf: 'This person is me',
   language: 'Language',
+  currency: 'Currency',
 };
 
 const fieldLabels: Record<string, string> = {
@@ -77,6 +78,7 @@ const fieldLabels: Record<string, string> = {
   active: 'Ativo',
   isSelf: 'Esta pessoa sou eu',
   language: 'Idioma',
+  currency: 'Moeda',
 };
 
 export function validationMessage(error: ZodError, language: Language = 'pt-BR'): string {

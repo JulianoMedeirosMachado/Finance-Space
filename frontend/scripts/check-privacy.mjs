@@ -504,6 +504,35 @@ try {
   assert.equal(language.value, 'en-US');
   assert.match(money(123456), /1,234\.56/);
   assert.match(money(123456), /R\$/);
+  {
+    const { setCurrency, currencies } = await server.ssrLoadModule('/src/utils/currency.ts');
+    const originalRecords = JSON.stringify(finance.records);
+    for (const code of currencies) {
+      setCurrency(code);
+      assert.equal(
+        money(123456),
+        new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(1234.56),
+      );
+      assert.ok(
+        resources.value.transactions.fields
+          .find((field) => field.key === 'amount')
+          .label.includes(code),
+      );
+    }
+    setCurrency('USD');
+    assert.equal(money(123456), '$1,234.56');
+    setLanguage('pt-BR');
+    assert.equal(
+      money(123456),
+      new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'USD' }).format(1234.56),
+    );
+    assert.equal(JSON.stringify(finance.records), originalRecords);
+    const settingsHtml = await render(Settings);
+    assert.match(settingsHtml, /Moeda da conta/);
+    assert.match(settingsHtml, /<select value="USD">/);
+    setCurrency('BRL');
+    setLanguage('en-US');
+  }
   assert.equal(dateLabel('2026-10-22'), '10/22/2026');
   assert.match(monthLabel('2026-10'), /Oct/);
   assert.equal(t('Editar meta {name}', { name: '<img>' }), 'Edit goal <img>');

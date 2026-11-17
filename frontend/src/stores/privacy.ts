@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { money } from '../utils/format';
+import { currencySymbol } from '../utils/currency';
 
 export const usePrivacyStore = defineStore('privacy', () => {
   const hidden = ref(true);
@@ -11,7 +12,7 @@ export const usePrivacyStore = defineStore('privacy', () => {
     hidden.value = true;
   }
   function formatAmount(value: unknown) {
-    return hidden.value ? 'R$ ••••' : money(value);
+    return hidden.value ? `${currencySymbol.value} ••••` : money(value);
   }
   return { hidden, toggle, hide, formatAmount };
 });

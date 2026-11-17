@@ -153,6 +153,8 @@ Provider calls and Telegram delivery are covered by mocked automated tests. A re
 
 ## Meal allowance balance
 
+The account's display currency can be selected in **Settings → Account currency**, independently of its language. Supported display currencies are BRL, USD, EUR, GBP, CAD, AUD and CHF, all with two decimal places. Changing currency relabels the same numeric amounts throughout the interface, CSV values and Telegram previews. There is no exchange-rate conversion or per-entry currency. Existing accounts and older restored backups default to BRL. Migration 10 persists the preference, and full backups preserve it. New AI analysis uses the selected currency; previously generated reports retain their original text.
+
 The allowance uses a separate ledger in BRL cents:
 
 - Previous balance = all recorded credits before the selected month minus purchases plus balance corrections before that month.

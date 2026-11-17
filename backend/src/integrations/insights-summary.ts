@@ -39,6 +39,7 @@ export function buildInsightSummary(
   records: FinanceRecord[],
   kind: InsightKind,
   today = localToday(),
+  currency = 'BRL',
 ) {
   const period = closedPeriod(kind, today);
   const previous = previousPeriod(kind, period);
@@ -198,7 +199,7 @@ export function buildInsightSummary(
   return {
     labels,
     payload: {
-      currency: 'BRL',
+      currency,
       monetaryUnit: 'integer cents',
       kind,
       period,

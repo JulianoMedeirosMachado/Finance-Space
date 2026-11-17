@@ -1,4 +1,9 @@
 export const english: Record<string, string> = {
+  'Moeda da conta': 'Account currency',
+  Moeda: 'Currency',
+  'Moeda atualizada.': 'Currency updated.',
+  'Escolha a moeda de exibição. Os valores cadastrados mantêm o mesmo número, sem conversão cambial.':
+    'Choose the display currency. Recorded amounts keep the same numeric value, without exchange-rate conversion.',
   'Esta correção guarda a diferença aplicada, não o saldo final. Para informar um novo saldo real, use Corrigir saldo.':
     'This correction stores the applied difference, not the final balance. To enter a new actual balance, use Correct balance.',
   'Corrigir saldo': 'Correct balance',

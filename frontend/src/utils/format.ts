@@ -1,7 +1,8 @@
 import { language } from '../i18n';
+import { currency } from './currency';
 
 export const money = (value: unknown) =>
-  new Intl.NumberFormat(language.value, { style: 'currency', currency: 'BRL' }).format(
+  new Intl.NumberFormat(language.value, { style: 'currency', currency: currency.value }).format(
     Number(value || 0) / 100,
   );
 export const monthLabel = (month: string) =>

@@ -2,12 +2,14 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api, ApiError } from '../services/api';
 import { language, setLanguage, type Language } from '../i18n';
+import { setCurrency, type Currency } from '../utils/currency';
 
 interface User {
   id: string;
   name: string;
   email: string;
   language: Language;
+  currency: Currency;
 }
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null);
@@ -16,6 +18,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       user.value = await api<User>('/auth/me');
       setLanguage(user.value.language);
+      setCurrency(user.value.currency);
     } catch (error) {
       if (!(error instanceof ApiError && error.status === 401)) {
         throw error;
@@ -33,6 +36,7 @@ export const useAuthStore = defineStore('auth', () => {
       body: JSON.stringify(mode === 'register' ? { ...input, language: language.value } : input),
     });
     setLanguage(user.value.language);
+    setCurrency(user.value.currency);
   }
   async function updateLanguage(language: Language) {
     user.value = await api<User>('/auth/preferences', {
@@ -40,11 +44,20 @@ export const useAuthStore = defineStore('auth', () => {
       body: JSON.stringify({ language }),
     });
     setLanguage(user.value.language);
+    setCurrency(user.value.currency);
+  }
+  async function updateCurrency(currency: Currency) {
+    user.value = await api<User>('/auth/preferences', {
+      method: 'PATCH',
+      body: JSON.stringify({ currency }),
+    });
+    setCurrency(user.value.currency);
   }
   async function logout() {
     await api('/auth/logout', { method: 'POST' });
     user.value = null;
+    setCurrency('BRL');
     setLanguage('pt-BR');
   }
-  return { user, ready, initialize, authenticate, updateLanguage, logout };
+  return { user, ready, initialize, authenticate, updateLanguage, updateCurrency, logout };
 });

@@ -4,6 +4,7 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { z } from 'zod';
+import { currencySchema } from './common/currency';
 import { DatabaseService } from './database/database.service';
 import { backupInsights, restoreInsights } from './integrations/insights-backup';
 
@@ -70,7 +71,7 @@ async function run() {
         if (Number(count[0].count) === 0) {
           for (const user of backup.users) {
             await transaction.query(
-              'INSERT INTO users(id,email,name,password_hash,created_at,language) VALUES($1,$2,$3,$4,$5,$6)',
+              'INSERT INTO users(id,email,name,password_hash,created_at,language,currency) VALUES($1,$2,$3,$4,$5,$6,$7)',
               [
                 user.id,
                 user.email,
@@ -78,6 +79,7 @@ async function run() {
                 user.password_hash,
                 user.created_at,
                 z.enum(['pt-BR', 'en-US']).parse(user.language ?? 'pt-BR'),
+                currencySchema.parse(user.currency ?? 'BRL'),
               ],
             );
           }

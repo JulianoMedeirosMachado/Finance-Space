@@ -5,10 +5,29 @@ import { Tags, Users, History, Download, ShieldCheck, ChevronRight, Bot } from '
 import { useAuthStore } from '../stores/auth';
 import { computed, ref } from 'vue';
 import type { Language } from '../i18n';
+import { currency, currencies, type Currency } from '../utils/currency';
 const auth = useAuthStore();
 const busy = ref(false);
 const error = ref('');
 const saved = ref(false);
+const currencySaved = ref(false);
+const currencyError = ref('');
+const currencyNames = computed(() => new Intl.DisplayNames([language.value], { type: 'currency' }));
+async function changeCurrency(event: Event) {
+  busy.value = true;
+  currencyError.value = '';
+  currencySaved.value = false;
+  try {
+    await auth.updateCurrency((event.target as HTMLSelectElement).value as Currency);
+    currencySaved.value = true;
+  } catch (failure) {
+    currencyError.value =
+      failure instanceof Error ? failure.message : t('Não foi possível salvar.');
+    (event.target as HTMLSelectElement).value = currency.value;
+  } finally {
+    busy.value = false;
+  }
+}
 async function changeLanguage(event: Event) {
   busy.value = true;
   error.value = '';
@@ -80,6 +99,28 @@ const settings = computed(() => [
     </label>
     <p v-if="error" role="alert" class="notice error">{{ error }}</p>
     <p v-if="saved" role="status" class="notice success">{{ t('Idioma atualizado.') }}</p>
+  </section>
+  <section class="panel language-panel">
+    <div>
+      <h2>{{ t('Moeda da conta') }}</h2>
+      <p>
+        {{
+          t(
+            'Escolha a moeda de exibição. Os valores cadastrados mantêm o mesmo número, sem conversão cambial.',
+          )
+        }}
+      </p>
+    </div>
+    <label
+      >{{ t('Moeda') }}
+      <select :value="currency" :disabled="busy" @change="changeCurrency">
+        <option v-for="code in currencies" :key="code" :value="code">
+          {{ code }} — {{ currencyNames.of(code) }}
+        </option>
+      </select>
+    </label>
+    <p v-if="currencyError" role="alert" class="notice error">{{ currencyError }}</p>
+    <p v-if="currencySaved" role="status" class="notice success">{{ t('Moeda atualizada.') }}</p>
   </section>
   <div class="settings-grid">
     <RouterLink v-for="item in settings" :key="item.to" :to="item.to" class="panel settings-link"

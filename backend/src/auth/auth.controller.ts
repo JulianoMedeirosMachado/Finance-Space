@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { AuthService } from './auth.service';
 import { requestLanguage, translateMessage } from '../common/language';
+import { currencySchema } from '../common/currency';
 
 const emailSchema = z.string().trim().toLowerCase().email().max(254);
 const passwordSchema = z.string().min(10, 'Use pelo menos 10 caracteres.').max(128);
@@ -56,10 +57,14 @@ export class AuthController {
   @Patch('preferences')
   updatePreferences(@Body() body: unknown, @Req() request: Request) {
     const input = z
-      .object({ language: z.enum(['pt-BR', 'en-US']) })
+      .object({
+        language: z.enum(['pt-BR', 'en-US']).optional(),
+        currency: currencySchema.optional(),
+      })
       .strict()
+      .refine((value) => value.language !== undefined || value.currency !== undefined)
       .parse(body);
-    return this.auth.updateLanguage(request.cookies.finance_session, input.language);
+    return this.auth.updatePreferences(request.cookies.finance_session, input);
   }
   @Post('logout')
   async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {

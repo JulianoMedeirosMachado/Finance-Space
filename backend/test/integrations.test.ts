@@ -213,6 +213,8 @@ test('AI adapter uses fixed HTTPS endpoints, minimal catalogs, JSON validation a
       assert.equal(benefit.nature, nature);
       assert.equal(benefit.cardId, null);
     }
+    await ai.interpret(credential, 'Groceries 22.90', [], 'English', 'USD');
+    assert.match(request.messages[0].content, /account display currency is USD/);
     output = JSON.stringify({
       title: 'Summary',
       summary: 'Only aggregate data is used.',

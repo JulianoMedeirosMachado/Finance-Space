@@ -92,7 +92,13 @@ export class InsightsService {
     let result: InsightRow;
     if (claim.claimed) {
       try {
-        const snapshot = buildInsightSummary(await this.finance.list(userId), kind, today);
+        const currency = (await this.repository.settings(userId))?.currency ?? 'BRL';
+        const snapshot = buildInsightSummary(
+          await this.finance.list(userId),
+          kind,
+          today,
+          currency,
+        );
         const credential = await this.integration.prepareAiCall(userId, claim.version);
         const raw = await this.ai.insights(
           credential,

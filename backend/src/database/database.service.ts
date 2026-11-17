@@ -190,6 +190,16 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy, QueryExec
         await migrateTelegramBenefits(database);
         await database.query('INSERT INTO schema_migrations(version) VALUES(9)');
       }
+      const currency = await database.query(
+        'SELECT version FROM schema_migrations WHERE version=10',
+      );
+      if (currency.length === 0) {
+        await database.query(
+          "ALTER TABLE users ADD COLUMN currency TEXT NOT NULL DEFAULT 'BRL' CHECK (currency IN ('BRL','USD','EUR','GBP','CAD','AUD','CHF'))",
+        );
+        await database.query('GRANT SELECT(currency) ON public.users TO finance_space_runtime');
+        await database.query('INSERT INTO schema_migrations(version) VALUES(10)');
+      }
     });
   }
 

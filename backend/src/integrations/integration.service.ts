@@ -221,7 +221,7 @@ export class IntegrationService {
         const rows = await this.repository.database.query<
           IntegrationSettings & { language: string }
         >(
-          `SELECT i.*,u.language FROM integration_settings i JOIN users u ON u.id=i.user_id
+          `SELECT i.*,u.language,u.currency FROM integration_settings i JOIN users u ON u.id=i.user_id
           WHERE i.telegram_user_id=$1 AND i.user_id=$2 AND i.telegram_link_version=$3`,
           [chatId, context.linkHash ? null : context.ownerId, context.bindingVersion],
         );
@@ -395,6 +395,7 @@ export class IntegrationService {
         text,
         references,
         english ? 'English' : 'Brazilian Portuguese',
+        settings.currency ?? 'BRL',
       );
     } else {
       throw new BadRequestException('Há cadastros demais para interpretar pelo bot. Use o site.');
@@ -418,12 +419,12 @@ export class IntegrationService {
     };
     const amount = new Intl.NumberFormat(english ? 'en-US' : 'pt-BR', {
       style: 'currency',
-      currency: 'BRL',
+      currency: settings.currency ?? 'BRL',
     }).format(Number(data.amount) / 100);
     const money = (value: number) =>
       new Intl.NumberFormat(english ? 'en-US' : 'pt-BR', {
         style: 'currency',
-        currency: 'BRL',
+        currency: settings.currency ?? 'BRL',
       }).format(value / 100);
     const schedule =
       draft.kind === 'installments'
@@ -451,7 +452,7 @@ export class IntegrationService {
               : english
                 ? 'Expense'
                 : 'Despesa';
-    const split = telegramSplitPreview(draft, references, english);
+    const split = telegramSplitPreview(draft, references, english, settings.currency ?? 'BRL');
     const details =
       draft.kind === 'benefits'
         ? `\n${english ? 'Recorded only in meal allowance; separate from bank balances, salary and credit-card bills.' : 'Registrado somente no vale-alimentação; separado dos saldos bancários, salário e faturas.'}`

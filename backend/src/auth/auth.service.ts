@@ -17,6 +17,7 @@ import nodemailer from 'nodemailer';
 import { z } from 'zod';
 import { DatabaseService } from '../database/database.service';
 import type { Language } from '../common/language';
+import type { Currency } from '../common/currency';
 
 const scrypt = promisify(scryptCallback);
 export const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
@@ -38,12 +39,12 @@ export class AuthService {
       'INSERT INTO users(id,email,name,password_hash,language) VALUES($1,$2,$3,$4,$5)',
       [id, email, name, passwordHash, language],
     );
-    return this.createSession({ id, email, name, language });
+    return this.createSession({ id, email, name, language, currency: 'BRL' });
   }
 
   async login(email: string, password: string) {
     const users = await this.database.query(
-      'SELECT id,email,name,password_hash,language FROM users WHERE email=$1',
+      'SELECT id,email,name,password_hash,language,currency FROM users WHERE email=$1',
       [email],
     );
     const user = users[0];
@@ -57,6 +58,7 @@ export class AuthService {
         email: String(user.email),
         name: String(user.name),
         language: String(user.language),
+        currency: String(user.currency),
       });
     } else {
       throw new UnauthorizedException('E-mail ou senha inválidos.');
@@ -64,7 +66,13 @@ export class AuthService {
     return result;
   }
 
-  private async createSession(user: { id: string; email: string; name: string; language: string }) {
+  private async createSession(user: {
+    id: string;
+    email: string;
+    name: string;
+    language: string;
+    currency: string;
+  }) {
     const token = randomBytes(32).toString('hex');
     await this.database.query('DELETE FROM sessions WHERE expires_at < NOW()');
     await this.database.query(
@@ -76,10 +84,10 @@ export class AuthService {
 
   async findUser(token: string | undefined) {
     const users = await this.database.query(
-      'SELECT u.id,u.email,u.name,u.language FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>NOW()',
+      'SELECT u.id,u.email,u.name,u.language,u.currency FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>NOW()',
       [hashToken(token || '')],
     );
-    let user: { id: string; name: string; email: string; language: string };
+    let user: { id: string; name: string; email: string; language: string; currency: Currency };
     if (users[0]) {
       user = users[0] as typeof user;
     } else {
@@ -89,9 +97,19 @@ export class AuthService {
   }
 
   async updateLanguage(token: string | undefined, language: 'pt-BR' | 'en-US') {
+    return this.updatePreferences(token, { language });
+  }
+
+  async updatePreferences(
+    token: string | undefined,
+    preferences: { language?: Language; currency?: Currency },
+  ) {
     const user = await this.findUser(token);
-    await this.database.query('UPDATE users SET language=$1 WHERE id=$2', [language, user.id]);
-    return { ...user, language };
+    const rows = await this.database.query(
+      'UPDATE users SET language=COALESCE($1,language),currency=COALESCE($2,currency) WHERE id=$3 RETURNING id,name,email,language,currency',
+      [preferences.language ?? null, preferences.currency ?? null, user.id],
+    );
+    return rows[0];
   }
 
   async logout(token: string) {

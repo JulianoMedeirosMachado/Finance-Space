@@ -5,9 +5,11 @@ import type { TelegramUpdate } from './integration.schema';
 import type { TelegramContext } from './telegram-context';
 import { privateTelegramActor } from './telegram-context';
 import { hashToken } from '../auth/auth.service';
+import type { Currency } from '../common/currency';
 
 export interface IntegrationSettings extends Record<string, unknown> {
   user_id: string;
+  currency?: Currency;
   provider: 'deepseek' | 'openrouter' | null;
   model: string | null;
   encrypted_key: string | null;
@@ -56,7 +58,7 @@ export class IntegrationRepository {
     const query = async (database: QueryExecutor) =>
       (
         await database.query<IntegrationSettings>(
-          'SELECT * FROM integration_settings WHERE user_id=$1',
+          'SELECT i.*,u.currency FROM integration_settings i JOIN users u ON u.id=i.user_id WHERE i.user_id=$1',
           [userId],
         )
       )[0];

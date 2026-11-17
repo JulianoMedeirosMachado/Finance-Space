@@ -5,12 +5,13 @@ export function telegramSplitPreview(
   draft: TelegramDraft,
   references: { id: string; data: FinanceData }[],
   english: boolean,
+  currency = 'BRL',
 ) {
   let preview = '';
   if (draft.split_entries) {
     const locale = english ? 'en-US' : 'pt-BR';
     const money = (amount: number) =>
-      new Intl.NumberFormat(locale, { style: 'currency', currency: 'BRL' }).format(amount / 100);
+      new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount / 100);
     const percent = (weight: number, total: number) =>
       new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 4 }).format(
         weight / total,

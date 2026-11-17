@@ -6,6 +6,7 @@ import { api } from '../services/api';
 import { useFinanceStore } from '../stores/finance';
 import { money, monthLabel } from '../utils/format';
 import type { Dashboard } from '../types';
+import { currencyLabel } from '../utils/currency';
 
 const props = defineProps<{ month: string; balance: number }>();
 const emit = defineEmits<{ close: []; saved: [] }>();
@@ -103,7 +104,7 @@ async function save() {
         </p>
         <div class="form-grid">
           <label class="full-width"
-            >{{ t('Saldo real no vale (R$)')
+            >{{ currencyLabel(t('Saldo real no vale (R$)'))
             }}<input
               v-model="actualBalance"
               inputmode="decimal"

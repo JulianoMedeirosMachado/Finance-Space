@@ -313,9 +313,10 @@ function exportCsv() {
               v-for="key in definition.columns"
               :key="key"
               :label="
-                (definition.fields.find((field) => field.key === key)?.label || key)
-                  .replace(' (R$)', '')
-                  .replace(' (BRL)', '')
+                (definition.fields.find((field) => field.key === key)?.label || key).replace(
+                  / \([A-Z]{3}\)$/,
+                  '',
+                )
               "
               :state="sortState(key)"
               @sort="changeSort(key)"

@@ -50,6 +50,8 @@ test('legacy schema upgrades preserve data and goals and contributions survive s
   await original.query('DELETE FROM schema_migrations WHERE version=7');
   await original.query('ALTER TABLE telegram_drafts DROP COLUMN split_entries');
   await original.query('DELETE FROM schema_migrations WHERE version=8');
+  await original.query('ALTER TABLE users DROP COLUMN currency');
+  await original.query('DELETE FROM schema_migrations WHERE version=10');
   await original.query('INSERT INTO telegram_updates(update_id,payload) VALUES(2,$1)', [
     JSON.stringify({ message: { text: 'Synthetic unbound legacy message' } }),
   ]);
@@ -92,6 +94,8 @@ test('legacy schema upgrades preserve data and goals and contributions survive s
   );
   const session = await upgradedAuth.login('migration@example.test', 'test-password-123');
   await upgradedAuth.updateLanguage(session.token, 'en-US');
+  assert.equal((await upgradedAuth.findUser(session.token)).currency, 'BRL');
+  await upgradedAuth.updatePreferences(session.token, { currency: 'USD' });
   assert.deepEqual(await upgradedFinance.list(user.id), before);
   const goal = await upgradedFinance.save(user.id, 'goals', {
     name: 'GPU',
@@ -115,9 +119,10 @@ test('legacy schema upgrades preserve data and goals and contributions survive s
     (await restarted.query('SELECT version FROM schema_migrations ORDER BY version')).map(
       (row) => row.version,
     ),
-    [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   );
   assert.equal((await new AuthService(restarted).findUser(session.token)).language, 'en-US');
+  assert.equal((await new AuthService(restarted).findUser(session.token)).currency, 'USD');
   await restarted.onModuleDestroy();
   await rm(directory, { recursive: true });
 });

@@ -1,6 +1,7 @@
 import type { ResourceKind } from '../types';
 import { computed } from 'vue';
 import { t } from '../i18n';
+import { currencyLabel } from '../utils/currency';
 export interface Field {
   key: string;
   label: string;
@@ -286,7 +287,7 @@ export const resources = computed(
           description: t(definition.description),
           fields: definition.fields.map((field) => ({
             ...field,
-            label: t(field.label),
+            label: currencyLabel(t(field.label)),
             options: field.options?.map((option) => ({ ...option, label: t(option.label) })),
           })),
         },

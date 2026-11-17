@@ -226,6 +226,31 @@ test(
       const preference = await request('/auth/preferences', 'PATCH', { language: 'en-US' }, cookie);
       assert.equal(preference.status, 200);
       assert.equal((await preference.json()).language, 'en-US');
+      const currencyPreference = await request(
+        '/auth/preferences',
+        'PATCH',
+        { currency: 'USD' },
+        cookie,
+      );
+      assert.equal(currencyPreference.status, 200);
+      const currencyUser = await currencyPreference.json();
+      assert.equal(currencyUser.currency, 'USD');
+      assert.equal(currencyUser.language, 'en-US');
+      assert.equal(
+        (await (await request('/finance/dashboard?month=2026-10', 'GET', undefined, cookie)).json())
+          .benefits.balance,
+        10000,
+      );
+      assert.equal(
+        (await request('/auth/preferences', 'PATCH', { currency: 'INVALID' }, cookie)).status,
+        400,
+      );
+      assert.equal(
+        (await request('/auth/preferences', 'PATCH', { currency: 'USD', userId: 'other' }, cookie))
+          .status,
+        400,
+      );
+      assert.equal((await request('/auth/preferences', 'PATCH', {}, cookie)).status, 400);
       assert.equal(
         (await (await request('/auth/me', 'GET', undefined, cookie)).json()).language,
         'en-US',
@@ -299,6 +324,14 @@ test(
         password: 'test-password-123',
       });
       const secondCookie = second.headers.get('set-cookie')!.split(';')[0];
+      assert.equal(
+        (await (await request('/auth/me', 'GET', undefined, secondCookie)).json()).currency,
+        'BRL',
+      );
+      assert.equal(
+        (await (await request('/auth/me', 'GET', undefined, cookie)).json()).currency,
+        'USD',
+      );
       assert.equal(
         (await (await request('/auth/me', 'GET', undefined, secondCookie)).json()).language,
         'pt-BR',
